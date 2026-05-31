@@ -220,9 +220,9 @@ public class MainFrame extends JFrame {
                 JTextField endField = new JTextField("2026-05-20");
 
                 Color[] palette = {
-                        new Color(100, 149, 237, 220), new Color(60, 179, 113, 220),
-                        new Color(255, 127, 80, 220), new Color(186, 85, 211, 220),
-                        new Color(218, 165, 32, 220)
+                        new Color(246, 144, 61), new Color(54, 207, 201),
+                        new Color(246, 189, 22), new Color(97, 221, 170),
+                        new Color(146, 112, 202), new Color(91, 143, 249)
                 };
                 Color selectedColor = palette[(int)(Math.random() * palette.length)];
 

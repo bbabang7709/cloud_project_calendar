@@ -36,7 +36,7 @@ public class DataManager {
             taskDir.mkdirs();
         }
 
-        // 초기 구동 시 마스터 파일이 아예 없다면 테스트용 기본 뼈대 데이터를 자동으로 생성해 줌 (학생 테스트 편의용)
+        // 초기 구동 시 마스터 파일이 아예 없다면 테스트용 데이터를 자동으로 생성 (테스트 편의용)
         // initDefaultMasterFile();
 
         // 초기 파일들의 수정 시간 기록

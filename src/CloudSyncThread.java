@@ -26,7 +26,7 @@ public class CloudSyncThread extends Thread {
                     System.out.println("[동기화 스레드] 외부 변경 감지! 메모리 리로드 및 GUI 갱신 진행");
                     
                     // 메모리상의 DB 최신 데이터로 동기화
-                    ProjectManager.getInstance().refreshMemoryFromCloud();
+                    ProjectManager.getInstance().refreshData();
                     
                     // Swing 컴포넌트 갱신은 반드시 Event Dispatch Thread(EDT)에서 처리해야 안전함
                     SwingUtilities.invokeLater(new Runnable() {

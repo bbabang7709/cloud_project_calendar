@@ -166,6 +166,7 @@ public class CalendarCanvas extends JPanel {
             // 2. 완벽한 일자 계산 (ChronoUnit) 기반의 띠지 드로잉 알고리즘
             LocalDate renderDate = drawStart;
             while (!renderDate.isAfter(drawEnd)) {
+                g2.setColor(task.getColor());
 
                 // 그려야 할 날짜가 현재 달력의 몇 번째 칸(Index)인지 정확히 계산
                 int dayNum = renderDate.getDayOfMonth();

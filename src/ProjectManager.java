@@ -24,17 +24,24 @@ public class ProjectManager {
     }
 
     // 스레드가 파일 변경을 감지했을 때 호출할 메서드
-    public void refreshMemoryFromCloud() {
+    public void refreshData() {
         this.database = DataManager.getInstance().loadAllData();
     }
 
     public void addTeam(String teamName) {
-        for (int i = 0; i < database.size(); i++) {
-            // 팀이름 중복 방지
-            if (database.get(i).getTeamName().equals(teamName)) {
+//        for (int i = 0; i < database.size(); i++) {
+//            // 팀이름 중복 방지
+//            if (database.get(i).getTeamName().equals(teamName)) {
+//                return;
+//            }
+//        }
+
+        for (Team t : database) {
+            if (t.getTeamName().equals(teamName)) {
                 return;
             }
         }
+
         database.add(new Team(teamName));
         DataManager.getInstance().saveProjectMaster(database);
     }
