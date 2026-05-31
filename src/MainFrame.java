@@ -5,20 +5,39 @@ import javax.swing.event.ListSelectionListener;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.util.UUID;
 
 public class MainFrame extends JFrame {
     private TeamPanel teamPanel;
     private ProjectPanel projectPanel;
     private TaskPanel taskPanel;
     private CalendarPanel calendarPanel;
-    
+
     // 백그라운드 작동용 멀티 스레드 쌍
     private CloudSyncThread syncThread;
-    private NotificationThread notificationThread;
+    private NotificationThread alarmThread; // 유저 스레드명에 맞게 매핑
+
+    // [권한 제어용] 일반 팀원 로그인 시 본인 소속 팀을 저장하는 변수
+    private String memberTeamName = null;
 
     public MainFrame() {
         User currentUser = PermissionManager.getInstance().getCurrentUser();
-        setTitle("클라우드 캘린더 - 접속 유저: " + currentUser.getName());
+
+        // ----------------- [권한 부여 프로세스] -----------------
+        // 일반 팀원이면 로그인 직후 본인의 소속 팀이 어디인지 물어봐서 권한을 제한합니다.
+        if (!currentUser.isAdmin()) {
+            memberTeamName = JOptionPane.showInputDialog(this,
+                    "접속하신 팀원분의 소속 팀명을 입력해주세요.\n(예: 소프트웨어 개발팀)",
+                    "소속 팀 확인",
+                    JOptionPane.QUESTION_MESSAGE);
+
+            if (memberTeamName == null || memberTeamName.trim().isEmpty()) {
+                memberTeamName = "미소속"; // 입력 취소 시 빈 깡통 권한 부여
+            }
+        }
+
+        String titlePrefix = currentUser.isAdmin() ? "[관리자 모드] " : "[팀원: " + memberTeamName + "] ";
+        setTitle("클라우드 캘린더 - " + titlePrefix + currentUser.getName());
         setSize(1200, 800);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
@@ -36,20 +55,68 @@ public class MainFrame extends JFrame {
         managementTab.setBackground(Color.WHITE);
         managementTab.setBorder(new EmptyBorder(15, 15, 15, 15));
 
-        // 상단 반반 스플릿 배치 (팀 목록 / 프로젝트 목록)
+        // 상단 컨테이너 (관리자 툴바 + 팀/프로젝트 리스트)
+        JPanel northContainer = new JPanel(new BorderLayout(0, 10));
+        northContainer.setBackground(Color.WHITE);
+
+        // [RBAC] 관리자 전용 '팀/프로젝트 추가' 패널
+        if (currentUser.isAdmin()) {
+            JPanel adminPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+            adminPanel.setBackground(Color.WHITE);
+            adminPanel.setBorder(BorderFactory.createTitledBorder(BorderFactory.createLineBorder(Color.LIGHT_GRAY), "관리자 전용 마스터 컨트롤"));
+
+            JButton btnAddTeam = createStyledButton("새로운 팀 생성 (+)", new Color(255, 140, 0));
+            JButton btnAddProject = createStyledButton("새로운 프로젝트 생성 (+)", new Color(255, 140, 0));
+
+            btnAddTeam.addActionListener(new ActionListener() {
+                @Override
+                public void actionPerformed(ActionEvent e) {
+                    String newTeam = JOptionPane.showInputDialog(MainFrame.this, "신규 팀 이름을 입력하세요:");
+                    if (newTeam != null && !newTeam.trim().isEmpty()) {
+                        ProjectManager.getInstance().addTeam(newTeam.trim());
+                        refreshAllViews();
+                    }
+                }
+            });
+
+            btnAddProject.addActionListener(new ActionListener() {
+                @Override
+                public void actionPerformed(ActionEvent e) {
+                    Team selectedTeam = teamPanel.getSelectedTeam();
+                    if (selectedTeam == null) {
+                        JOptionPane.showMessageDialog(MainFrame.this, "프로젝트를 추가할 '팀'을 먼저 아래에서 선택하세요.");
+                        return;
+                    }
+                    String newProject = JOptionPane.showInputDialog(MainFrame.this, selectedTeam.getTeamName() + "에 추가할 신규 프로젝트명:");
+                    if (newProject != null && !newProject.trim().isEmpty()) {
+                        // 학부 과제 수준 임의 식별자 생성
+                        String pId = "P_" + UUID.randomUUID().toString().substring(0, 5);
+                        ProjectManager.getInstance().addProject(selectedTeam, new Project(pId, newProject.trim()));
+                        refreshAllViews();
+                    }
+                }
+            });
+
+            adminPanel.add(btnAddTeam);
+            adminPanel.add(btnAddProject);
+            northContainer.add(adminPanel, BorderLayout.NORTH);
+        }
+
+        // 기존 상단 반반 스플릿 배치 (팀 목록 / 프로젝트 목록)
         JPanel topSplitPanel = new JPanel(new GridLayout(1, 2, 15, 0));
         topSplitPanel.setBackground(Color.WHITE);
-        topSplitPanel.setPreferredSize(new Dimension(0, 250)); 
+        topSplitPanel.setPreferredSize(new Dimension(0, 200));
 
         teamPanel = new TeamPanel();
         projectPanel = new ProjectPanel();
         topSplitPanel.add(teamPanel);
         topSplitPanel.add(projectPanel);
 
+        northContainer.add(topSplitPanel, BorderLayout.CENTER);
+        managementTab.add(northContainer, BorderLayout.NORTH);
+
         // 하단 전체 Task 목록 배치
         taskPanel = new TaskPanel();
-
-        managementTab.add(topSplitPanel, BorderLayout.NORTH);
         managementTab.add(taskPanel, BorderLayout.CENTER);
 
         // 최하단 띠지 조작 버튼 바 배치
@@ -60,12 +127,6 @@ public class MainFrame extends JFrame {
         JButton btnToggle = createStyledButton("완료 상태 토글 (미완료↔완료)", new Color(60, 179, 113));
         JButton btnDelete = createStyledButton("Task 삭제", new Color(220, 20, 60));
         JButton btnSimulateSync = createStyledButton("🔄 외부 동기화 흉내내기", Color.DARK_GRAY);
-
-        // [RBAC 권한 제어] Admin이 아니면 삭제 버튼 비활성화 조치
-        if (!PermissionManager.getInstance().hasAdminAccess()) {
-            btnDelete.setEnabled(false);
-            btnDelete.setToolTipText("관리자 권한이 필요합니다.");
-        }
 
         bottomPanel.add(btnSimulateSync);
         bottomPanel.add(btnAdd);
@@ -78,23 +139,44 @@ public class MainFrame extends JFrame {
 
         // 이벤트 처리 위임
         setupEventHandlers(btnAdd, btnToggle, btnDelete, btnSimulateSync);
-        
+
         // 초기 데이터 가시화
         refreshAllViews();
 
         // ----------------- [멀티 스레드 가동 개시] -----------------
-        // 1. 3초 주기 파일 변경 추적용 백그라운드 동기화 스레드 작동
         syncThread = new CloudSyncThread(this);
         syncThread.start();
 
-        // 2. 5초 주기 마감일 도달 실시간 알림 경고 스레드 작동
-        notificationThread = new NotificationThread();
-        notificationThread.start();
+        // 사용자 환경에 맞게 Alarm 스레드 가동 방어 코드
+        try {
+            alarmThread = new NotificationThread();
+            alarmThread.start();
+        } catch (Exception ex) {
+            System.out.println("알람 스레드가 비활성화되어 생략합니다.");
+        }
+    }
+
+    // [RBAC] 권한 검사 공통 헬퍼 메서드
+    private boolean hasPermissionForSelectedTeam() {
+        User currentUser = PermissionManager.getInstance().getCurrentUser();
+        // 1. 관리자(Admin)는 무조건 프리패스
+        if (currentUser.isAdmin()) return true;
+
+        // 2. 일반 팀원은 선택한 팀이 로그인 시 적어낸 자기 팀과 일치할 때만 허용
+        Team selectedTeam = teamPanel.getSelectedTeam();
+        if (selectedTeam != null && selectedTeam.getTeamName().equals(this.memberTeamName)) {
+            return true;
+        }
+
+        // 권한 부족 시 팝업 띄우고 차단
+        JOptionPane.showMessageDialog(this,
+                "권한 오류: 본인 소속 팀(" + this.memberTeamName + ")의 업무만 제어할 수 있습니다.",
+                "접근 거부", JOptionPane.ERROR_MESSAGE);
+        return false;
     }
 
     private void setupEventHandlers(JButton btnAdd, JButton btnToggle, JButton btnDelete, JButton btnSimulateSync) {
-        
-        // 1. Team 목록 클릭 시 Project 목록 변경 리스너
+
         teamPanel.addListSelectionListener(new ListSelectionListener() {
             @Override
             public void valueChanged(ListSelectionEvent e) {
@@ -108,7 +190,6 @@ public class MainFrame extends JFrame {
             }
         });
 
-        // 2. Project 목록 클릭 시 Task 목록 변경 리스너
         projectPanel.addListSelectionListener(new ListSelectionListener() {
             @Override
             public void valueChanged(ListSelectionEvent e) {
@@ -121,7 +202,7 @@ public class MainFrame extends JFrame {
             }
         });
 
-        // 3. Task 추가 버튼 (익명 클래스 사용)
+        // Task 추가 버튼 권한 제어 연동
         btnAdd.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -131,66 +212,74 @@ public class MainFrame extends JFrame {
                     return;
                 }
 
+                // [RBAC] 권한 검사
+                if (!hasPermissionForSelectedTeam()) return;
+
                 JTextField titleField = new JTextField();
                 JTextField startField = new JTextField("2026-05-15");
                 JTextField endField = new JTextField("2026-05-20");
-                
+
                 Color[] palette = {
-                    new Color(100, 149, 237, 220), new Color(60, 179, 113, 220),  
-                    new Color(255, 127, 80, 220), new Color(186, 85, 211, 220),  
-                    new Color(218, 165, 32, 220)   
+                        new Color(100, 149, 237, 220), new Color(60, 179, 113, 220),
+                        new Color(255, 127, 80, 220), new Color(186, 85, 211, 220),
+                        new Color(218, 165, 32, 220)
                 };
                 Color selectedColor = palette[(int)(Math.random() * palette.length)];
 
                 Object[] message = { "업무명:", titleField, "시작일:", startField, "종료일:", endField };
                 int option = JOptionPane.showConfirmDialog(MainFrame.this, message, "스케줄 추가", JOptionPane.OK_CANCEL_OPTION);
-                
+
                 if (option == JOptionPane.OK_OPTION && !titleField.getText().trim().isEmpty()) {
-                    // 접속 중인 사용자명을 ownerName으로 설정하여 파일 분리 기반 마련
                     String owner = PermissionManager.getInstance().getCurrentUser().getName();
                     Task newTask = new Task(selectedProject.getProjectId(), owner, titleField.getText(), startField.getText(), endField.getText(), selectedColor);
-                    
-                    // 비즈니스 총괄 ProjectManager에 추가 위임 (이후 DataManager로 자동 보존)
-                    ProjectManager.getInstance().addTaskToProject(selectedProject, newTask);
-                    
+
+                    ProjectManager.getInstance().addTask(selectedProject, newTask);
+
                     taskPanel.refreshTaskList(selectedProject.getTasks());
-                    calendarPanel.refreshCalendar(); 
+                    calendarPanel.refreshCalendar();
                 }
             }
         });
 
-        // 4. 완료 상태 토글 버튼
+        // 완료 상태 토글 버튼 권한 제어 연동
         btnToggle.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
                 Task selectedTask = taskPanel.getSelectedTask();
-                if (selectedTask != null) {
-                    ProjectManager.getInstance().toggleTaskCompletion(selectedTask);
-                    taskPanel.repaintList();
-                    calendarPanel.refreshCalendar();
-                } else {
+                if (selectedTask == null) {
                     JOptionPane.showMessageDialog(MainFrame.this, "상태를 변경할 Task를 선택해주세요.");
+                    return;
                 }
+
+                // [RBAC] 권한 검사
+                if (!hasPermissionForSelectedTeam()) return;
+
+                ProjectManager.getInstance().toggleTaskCompletion(selectedTask);
+                taskPanel.repaintList();
+                calendarPanel.refreshCalendar();
             }
         });
 
-        // 5. Task 삭제 버튼
+        // Task 삭제 버튼 권한 제어 연동
         btnDelete.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
                 Project currentProject = projectPanel.getSelectedProject();
                 Task selectedTask = taskPanel.getSelectedTask();
-                if (currentProject != null && selectedTask != null) {
-                    ProjectManager.getInstance().removeTaskFromProject(currentProject, selectedTask);
-                    taskPanel.refreshTaskList(currentProject.getTasks());
-                    calendarPanel.refreshCalendar();
-                } else {
+                if (currentProject == null || selectedTask == null) {
                     JOptionPane.showMessageDialog(MainFrame.this, "삭제할 Task를 선택해주세요.");
+                    return;
                 }
+
+                // [RBAC] 권한 검사
+                if (!hasPermissionForSelectedTeam()) return;
+
+                ProjectManager.getInstance().removeTask(currentProject, selectedTask);
+                taskPanel.refreshTaskList(currentProject.getTasks());
+                calendarPanel.refreshCalendar();
             }
         });
 
-        // 6. 외부 변경사항 가상 트리거
         btnSimulateSync.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -204,8 +293,8 @@ public class MainFrame extends JFrame {
         teamPanel.updateTeamList(ProjectManager.getInstance().getDatabase());
         projectPanel.clearProjects();
         taskPanel.clearTasks();
-        calendarPanel.updateFilters(); 
-        calendarPanel.refreshCalendar(); 
+        calendarPanel.updateFilters();
+        calendarPanel.refreshCalendar();
     }
 
     private JButton createStyledButton(String text, Color color) {

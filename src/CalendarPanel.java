@@ -103,13 +103,15 @@ public class CalendarPanel extends JPanel {
 		
 		// [수정 포인트] 누락된 monthLabel 객체를 생성하고 폰트를 지정합니다.
 		monthLabel = new JLabel("", SwingConstants.CENTER);
-		monthLabel.setFont(new Font("Segoe UI", Font.BOLD, 20));
+		monthLabel.setFont(new Font("맑은 고딕", Font.BOLD, 20));
 		
 		navLinePanel.add(prevBtn, BorderLayout.WEST);
 		navLinePanel.add(monthLabel, BorderLayout.CENTER);
 		navLinePanel.add(nextBtn, BorderLayout.EAST);
 		topControllerPanel.add(navLinePanel);
-		
+
+		add(topControllerPanel, BorderLayout.NORTH);
+
 		// 일 ~ 토 요일 가이드 패널
 		JPanel dayHeaderPanel = new JPanel(new GridLayout(1, 7));
 		dayHeaderPanel.setBackground(Color.WHITE);

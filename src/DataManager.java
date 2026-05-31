@@ -20,7 +20,7 @@ public class DataManager {
 
     // 파일들의 마지막 변경 시간을 기록해두는 맵 (변경 감지용)
     private Map<String, Long> fileLastModifiedMap;
-    private boolean isMockFileChanged = false; // 시뮬레이션용 플래그
+    private boolean isFileChanged = false; // 시뮬레이션용 플래그
 
     private DataManager() {
         fileLastModifiedMap = new HashMap<>();
@@ -37,7 +37,7 @@ public class DataManager {
         }
 
         // 초기 구동 시 마스터 파일이 아예 없다면 테스트용 기본 뼈대 데이터를 자동으로 생성해 줌 (학생 테스트 편의용)
-        initDefaultMasterFile();
+        // initDefaultMasterFile();
 
         // 초기 파일들의 수정 시간 기록
         recordFileTimestamps();
@@ -48,25 +48,25 @@ public class DataManager {
     }
 
     // 마스터 파일이 없을 때 기본 프로젝트 구조를 만들어주는 도우미 메서드
-    private void initDefaultMasterFile() {
-        File masterFile = new File(META_PATH + "/project_master.txt");
-        if (!masterFile.exists()) {
-            try {
-                BufferedWriter bw = new BufferedWriter(new FileWriter(masterFile));
-                // 형식: 팀명|프로젝트ID|프로젝트명
-                bw.write("소프트웨어 개발팀|P001|클라우드 고도화 패치");
-                bw.newLine();
-                bw.write("소프트웨어 개발팀|P002|보안 아키텍처 리팩토링");
-                bw.newLine();
-                bw.write("글로벌 마케팅팀|P003|2026 상반기 프로모션");
-                bw.newLine();
-                bw.close();
-                System.out.println("[DataManager] 초기 기본 마스터 파일(project_master.txt) 생성 완료!");
-            } catch (IOException e) {
-                System.out.println("기본 마스터 파일 생성 중 실패: " + e.getMessage());
-            }
-        }
-    }
+//    private void initDefaultMasterFile() {
+//        File masterFile = new File(META_PATH + "/project_master.txt");
+//        if (!masterFile.exists()) {
+//            try {
+//                BufferedWriter bw = new BufferedWriter(new FileWriter(masterFile));
+//                // 형식: 팀명|프로젝트ID|프로젝트명
+//                bw.write("소프트웨어 개발팀|P001|클라우드 고도화 패치");
+//                bw.newLine();
+//                bw.write("소프트웨어 개발팀|P002|보안 아키텍처 리팩토링");
+//                bw.newLine();
+//                bw.write("글로벌 마케팅팀|P003|2026 상반기 프로모션");
+//                bw.newLine();
+//                bw.close();
+//                System.out.println("[DataManager] 초기 기본 마스터 파일(project_master.txt) 생성 완료!");
+//            } catch (IOException e) {
+//                System.out.println("기본 마스터 파일 생성 중 실패: " + e.getMessage());
+//            }
+//        }
+//    }
 
     // 현재 폴더에 존재하는 파일들의 수정 시간을 기록해두는 헬퍼 메서드
     private void recordFileTimestamps() {
@@ -92,13 +92,12 @@ public class DataManager {
     }
 
     /**
-     * [스레드 연동 핵심 메서드]
      * 폴더 내의 파일들을 훑어보며 마지막으로 읽은 시점보다 수정 시간이 변한 파일이 있는지 감시합니다.
      */
     public boolean checkFileModified() {
         // 1. 시뮬레이션 버튼에 의해 강제 트리거된 경우 즉시 수락
-        if (isMockFileChanged) {
-            isMockFileChanged = false;
+        if (isFileChanged) {
+            isFileChanged = false;
             recordFileTimestamps(); // 기준 시간 최신화
             return true;
         }
@@ -163,7 +162,7 @@ public class DataManager {
 
     // 가상 동기화 변경 유발용 시뮬레이션 메서드
     public void triggerMockFileChange() {
-        this.isMockFileChanged = true;
+        this.isFileChanged = true;
     }
 
     // 전체 데이터 로드하는 메서드 (마스터 파일 읽고 -> 유저 파일 읽음)

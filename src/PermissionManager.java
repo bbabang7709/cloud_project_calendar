@@ -9,8 +9,8 @@ public class PermissionManager {
 	
 	private PermissionManager() {
 		userList = new ArrayList<>();
-		// 테스트용 임시 User
-		userList.add(new Admin("김팀장", "1234"));
+		// 관리용 Admin 추가
+		userList.add(new Admin("Admin", "1111"));
 	}
 	
 	public static PermissionManager getInstance() { return instance; }

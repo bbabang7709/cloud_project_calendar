@@ -25,6 +25,8 @@ public class Task {
 	public String getTitle() { return title; }
 	public String getStartDate() { return startDate; }
 	public String getDeadline() { return deadline; }
+	public LocalDate getStartLocalDate() { return LocalDate.parse(startDate); }
+	public LocalDate getDeadlineLocalDate() { return LocalDate.parse(deadline); }
 	public boolean isCompleted() { return completed; }
 	public void setCompleted(boolean state) {
 		this.completed = state;
@@ -33,16 +35,15 @@ public class Task {
 	
 	public boolean isWithinRange(LocalDate date) {
 		try {
-			LocalDate start = LocalDate.parse(startDate);
-			LocalDate end = LocalDate.parse(deadline);
-			
-			if (date.isEqual(start) || date.isEqual(end)) {
-				return true;
-			} else if (date.isAfter(start) && date.isBefore(end)) {
-				return true;
+			LocalDate start = getStartLocalDate();
+			LocalDate end = getDeadlineLocalDate();
+			if (start.isAfter(end)) {
+				return false;
 			}
+			
+			return !date.isBefore(start) && !date.isAfter(end);
 		} catch (Exception e) {
-			System.out.println("날짜 파싱 에러 발생: " + e.getMessage());
+			System.out.println("날짜 파싱 에러 발생(" + title + "): " + e.getMessage());
 		}
 		return false;
 	}

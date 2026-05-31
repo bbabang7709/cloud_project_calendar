@@ -28,8 +28,24 @@ public class ProjectManager {
         this.database = DataManager.getInstance().loadAllData();
     }
 
+    public void addTeam(String teamName) {
+        for (int i = 0; i < database.size(); i++) {
+            // 팀이름 중복 방지
+            if (database.get(i).getTeamName().equals(teamName)) {
+                return;
+            }
+        }
+        database.add(new Team(teamName));
+        DataManager.getInstance().saveProjectMaster(database);
+    }
+
+    public void addProject(Team team, Project project) {
+        team.addProject(project);
+        DataManager.getInstance().saveProjectMaster(database);
+    }
+
     // GUI에서 Task 추가 버튼 눌렀을 때 호출됨
-    public void addTaskToProject(Project project, Task task) {
+    public void addTask(Project project, Task task) {
         project.addTask(task); // 메모리에 일단 추가
         
         // 추가한 Task의 주인(ownerName) 파일만 다시 저장시킴
@@ -37,7 +53,7 @@ public class ProjectManager {
     }
 
     // GUI에서 Task 삭제 버튼 눌렀을 때 호출됨
-    public void removeTaskFromProject(Project project, Task task) {
+    public void removeTask(Project project, Task task) {
         project.removeTask(task);
         
         // 지워진 Task 주인의 파일만 다시 덮어씌움 (삭제 반영)
