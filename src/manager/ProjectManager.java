@@ -35,13 +35,6 @@ public class ProjectManager {
     }
 
     public void addTeam(String teamName) {
-//        for (int i = 0; i < database.size(); i++) {
-//            // 팀이름 중복 방지
-//            if (database.get(i).getTeamName().equals(teamName)) {
-//                return;
-//            }
-//        }
-
         for (Team t : database) {
             if (t.getTeamName().equals(teamName)) {
                 return;
@@ -85,7 +78,17 @@ public class ProjectManager {
         DataManager.getInstance().saveUserTasks(task.getOwnerName(), database);
     }
 
-    // GUI 구조 보호를 위한 외부 변경 시뮬레이터 우회 레이어
+    public Team getTeamByName(String teamName) {
+        Team targetTeam = null;
+        for (Team t : database) {
+            if (t.getTeamName().equals(teamName)) {
+                targetTeam = t;
+                break;
+            }
+        }
+
+        return targetTeam;
+    }
     public void simulateExternalUpdate() {
         DataManager.getInstance().triggerMockFileChange();
     }

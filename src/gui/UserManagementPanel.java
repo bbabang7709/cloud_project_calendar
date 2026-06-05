@@ -85,7 +85,7 @@ public class UserManagementPanel extends JPanel {
                     return;
                 }
 
-                PermissionManager.getInstance().changeUserRoleAndTeam(targetName, "LEADER", currentTeam);
+                PermissionManager.getInstance().updateUserRoleAndTeam(targetName, "LEADER", currentTeam);
                 JOptionPane.showMessageDialog(UserManagementPanel.this, targetName + " 님이 [팀장] 직급으로 설정되었습니다.");
                 refreshUserTable();
             }
@@ -114,7 +114,7 @@ public class UserManagementPanel extends JPanel {
                     return;
                 }
 
-                PermissionManager.getInstance().changeUserRoleAndTeam(targetName, "MEMBER", currentTeam);
+                PermissionManager.getInstance().updateUserRoleAndTeam(targetName, "MEMBER", currentTeam);
                 JOptionPane.showMessageDialog(UserManagementPanel.this, targetName + " 님이 [팀원] 직급으로 설정되었습니다.");
                 refreshUserTable();
             }
@@ -161,7 +161,7 @@ public class UserManagementPanel extends JPanel {
 
                 if (selectedTeam != null) {
                     String roleCode = currentRole.equals("팀장") ? "LEADER" : "MEMBER";
-                    PermissionManager.getInstance().changeUserRoleAndTeam(targetName, roleCode, selectedTeam);
+                    PermissionManager.getInstance().updateUserRoleAndTeam(targetName, roleCode, selectedTeam);
                     JOptionPane.showMessageDialog(UserManagementPanel.this, targetName + " 님이 [" + selectedTeam + "] 팀으로 배정되었습니다.");
                     refreshUserTable();
                 }

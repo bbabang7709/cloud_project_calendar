@@ -5,6 +5,7 @@ import model.Member;
 import model.TeamLeader;
 import model.User;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class PermissionManager {
@@ -43,47 +44,63 @@ public class PermissionManager {
 	public User loginOrRegister(String name, String password) {
 		userList = DataManager.getInstance().loadUsers();
 
+		// 기존 회원 검색
         for (User u : userList) {
-			if (u.getName().equals(name)) {
-				if (u.getPassword().equals(password)) {
-					return u;
-				} else {
-					return null;
-				}
+			if (u.getName().equals(name) && u.getPassword().equals(password)) {
+				currentUser = u;
+				System.out.println("로그인 성공: " + name + " (" + u.getClass().getSimpleName() + ")");
+				return currentUser;
 			}
-        }
+		}
 
-		System.out.println("새로운 팀원 가입 진행: " + name);
-
+		// 신규 가입 (미소속(N/A)의 Member 타입)
 		User newUser = new Member(name, password, "N/A");
 		userList.add(newUser);
 
-		saveUserDatabase();
+		// DataManager을 통해 userList 파일(users.txt)에 저장
+		DataManager.getInstance().saveUsers(userList);
 
-		return newUser;
+		currentUser = newUser;
+		return currentUser;
 	}
 
 	// Admin이 특정 유저의 역할 및 소속 팀을 변경할 때 호출되는 메서드.
 	// 클래스 타입을 직접 바꿀 수는 없으므로, 알맞은 클래스로 인스턴스를 재생성하여 교체
-	public void changeUserRoleAndTeam(String targetName, String newRole, String newTeamName) {
-		userList = DataManager.getInstance().loadUsers();
-
+	public void updateUserRoleAndTeam(String targetName, String newRole, String newTeam) {
 		for (int i = 0; i < userList.size(); i++) {
 			User u = userList.get(i);
 			if (u.getName().equals(targetName)) {
-				User updateUser;
-				if (newRole.equalsIgnoreCase("LEADER")) {
-					updateUser = new TeamLeader(u.getName(), u.getPassword(), newTeamName);
-				} else if (newRole.equalsIgnoreCase("ADMIN")) {
-					updateUser = new Admin(u.getName(), u.getPassword());
+				User updatedUser;
+				if (newRole.equalsIgnoreCase("ADMIN")) {
+					updatedUser = new Admin(u.getName(), u.getPassword());
+				} else if (newRole.equalsIgnoreCase("LEADER")) {
+					updatedUser = new TeamLeader(u.getName(), u.getPassword(), newTeam);
 				} else {
-					updateUser = new Member(u.getName(), u.getPassword(), newTeamName);
+					updatedUser = new Member(u.getName(), u.getPassword(), newTeam);
 				}
-				userList.set(i, updateUser);
+
+				userList.set(i, updatedUser);
 				break;
 			}
 		}
 
-		saveUserDatabase();
+		DataManager.getInstance().saveUsers(userList);
+	}
+
+	// 영입 가능한 미소속 유저 목록만 필터링하여 반환
+	public List<User> getUnassignedUsers() {
+		List<User> unassigned = new ArrayList<>();
+		for (User u : userList) {
+			// 관리자나 팀장이 아니며, 팀이 없는 유저만 필터링
+			if (u.getTeamName().equals("N/A") && !u.isAdmin() && !u.isLeader()) {
+				unassigned.add(u);
+			}
+		}
+		return unassigned;
+	}
+
+	// 모든 유저의 목록 반환
+	public List<User> getAllUsers() {
+		return userList;
 	}
 }

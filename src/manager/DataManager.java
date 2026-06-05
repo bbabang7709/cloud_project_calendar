@@ -367,9 +367,8 @@ public class DataManager {
     }
 
     /**
-     * [model.Admin 기능 보완용 메서드]
      * 관리자가 전체 프로젝트 구조(새로운 팀 추가, 새로운 프로젝트 생성 등)를 조작했을 때
-     * system_meta/project_master.txt 파일을 덮어쓰기 저장하는 핵심 메서드입니다.
+     * system_meta/project_master.txt 파일을 덮어쓰기 저장하는 메서드.
      */
     public void saveProjectMaster(List<Team> database) {
         File masterFile = new File(META_PATH + "/project_master.txt");
