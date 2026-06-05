@@ -1,3 +1,9 @@
+package gui;
+
+import model.User;
+
+import manager.PermissionManager;
+
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.border.LineBorder;

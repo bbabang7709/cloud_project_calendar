@@ -1,3 +1,16 @@
+package gui;
+
+import model.Project;
+import model.Task;
+import model.Team;
+import model.User;
+
+import manager.ProjectManager;
+import manager.PermissionManager;
+
+import thread.CloudSyncThread;
+import thread.NotificationThread;
+
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.event.ListSelectionEvent;
@@ -6,6 +19,7 @@ import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.util.UUID;
+import java.time.LocalDate;
 
 public class MainFrame extends JFrame {
     private TeamPanel teamPanel;
@@ -23,20 +37,24 @@ public class MainFrame extends JFrame {
     public MainFrame() {
         User currentUser = PermissionManager.getInstance().getCurrentUser();
 
-        // ----------------- [권한 부여 프로세스] -----------------
-        // 일반 팀원이면 로그인 직후 본인의 소속 팀이 어디인지 물어봐서 권한을 제한합니다.
-        if (!currentUser.isAdmin()) {
-            memberTeamName = JOptionPane.showInputDialog(this,
-                    "접속하신 팀원분의 소속 팀명을 입력해주세요.\n(예: 소프트웨어 개발팀)",
-                    "소속 팀 확인",
-                    JOptionPane.QUESTION_MESSAGE);
-
+        if (currentUser.isAdmin()) {
+            memberTeamName = "N/A";
+        } else {
+            memberTeamName = currentUser.getTeamName();
             if (memberTeamName == null || memberTeamName.trim().isEmpty()) {
-                memberTeamName = "미소속"; // 입력 취소 시 빈 깡통 권한 부여
+                memberTeamName = "N/A";
             }
         }
 
-        String titlePrefix = currentUser.isAdmin() ? "[관리자 모드] " : "[팀원: " + memberTeamName + "] ";
+        String titlePrefix;
+        if (currentUser.isAdmin()) {
+            titlePrefix = "[관리자] ";
+        } else if (currentUser.isLeader()) {
+            titlePrefix = "[" + memberTeamName + " 팀장] ";
+        } else {
+            titlePrefix = "[" + memberTeamName + " 팀원] ";
+        }
+
         setTitle("클라우드 캘린더 - " + titlePrefix + currentUser.getName());
         setSize(1200, 800);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -49,6 +67,11 @@ public class MainFrame extends JFrame {
         // ----------------- [탭 1: 달력 뷰 패널 부착] -----------------
         calendarPanel = new CalendarPanel();
         tabbedPane.addTab("  📅 스마트 캘린더 뷰  ", calendarPanel);
+
+        if (currentUser.isAdmin()) {
+            UserManagementPanel userManagementPanel = new UserManagementPanel();
+            tabbedPane.addTab("  👥 회원 권한 및 팀 설정  ", userManagementPanel);
+        }
 
         // ----------------- [탭 2: 데이터 관리 패널 부착] -----------------
         JPanel managementTab = new JPanel(new BorderLayout(15, 15));
@@ -63,10 +86,10 @@ public class MainFrame extends JFrame {
         if (currentUser.isAdmin()) {
             JPanel adminPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
             adminPanel.setBackground(Color.WHITE);
-            adminPanel.setBorder(BorderFactory.createTitledBorder(BorderFactory.createLineBorder(Color.LIGHT_GRAY), "관리자 전용 마스터 컨트롤"));
+            adminPanel.setBorder(BorderFactory.createTitledBorder(BorderFactory.createLineBorder(Color.LIGHT_GRAY), "관리자 전용 패널"));
 
-            JButton btnAddTeam = createStyledButton("새로운 팀 생성 (+)", new Color(255, 140, 0));
-            JButton btnAddProject = createStyledButton("새로운 프로젝트 생성 (+)", new Color(255, 140, 0));
+            JButton btnAddTeam = createStyledButton("팀 추가", new Color(255, 140, 0));
+            JButton btnAddProject = createStyledButton("프로젝트 추가", new Color(255, 140, 0));
 
             btnAddTeam.addActionListener(new ActionListener() {
                 @Override
@@ -84,12 +107,12 @@ public class MainFrame extends JFrame {
                 public void actionPerformed(ActionEvent e) {
                     Team selectedTeam = teamPanel.getSelectedTeam();
                     if (selectedTeam == null) {
-                        JOptionPane.showMessageDialog(MainFrame.this, "프로젝트를 추가할 '팀'을 먼저 아래에서 선택하세요.");
+                        JOptionPane.showMessageDialog(MainFrame.this, "프로젝트를 추가할 팀을 먼저 선택하세요.");
                         return;
                     }
                     String newProject = JOptionPane.showInputDialog(MainFrame.this, selectedTeam.getTeamName() + "에 추가할 신규 프로젝트명:");
                     if (newProject != null && !newProject.trim().isEmpty()) {
-                        // 학부 과제 수준 임의 식별자 생성
+                        // 프로젝트 식별자 생성
                         String pId = "P_" + UUID.randomUUID().toString().substring(0, 5);
                         ProjectManager.getInstance().addProject(selectedTeam, new Project(pId, newProject.trim()));
                         refreshAllViews();
@@ -100,6 +123,39 @@ public class MainFrame extends JFrame {
             adminPanel.add(btnAddTeam);
             adminPanel.add(btnAddProject);
             northContainer.add(adminPanel, BorderLayout.NORTH);
+        }
+
+        if (currentUser.isLeader()) {
+            JPanel leaderPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+            leaderPanel.setBackground(Color.WHITE);
+            leaderPanel.setBorder(BorderFactory.createTitledBorder(BorderFactory.createLineBorder(Color.LIGHT_GRAY), "관리자 전용 마스터 컨트롤"));
+
+            JButton btnAddProject = createStyledButton("프로젝트 추가", new Color(255, 140, 0));
+
+            btnAddProject.addActionListener(new ActionListener() {
+                @Override
+                public void actionPerformed(ActionEvent e) {
+                    Team selectedTeam = teamPanel.getSelectedTeam();
+                    if (selectedTeam == null) {
+                        JOptionPane.showMessageDialog(MainFrame.this, "프로젝트를 추가할 '팀'을 먼저 아래에서 선택하세요.");
+                        return;
+                    }
+                    if (!selectedTeam.getTeamName().equals(currentUser.getTeamName())) {
+                        JOptionPane.showMessageDialog(MainFrame.this, "자신이 소속된 팀의 프로젝트만 생성할 수 있습니다.");
+                        return;
+                    }
+                    String newProject = JOptionPane.showInputDialog(MainFrame.this, selectedTeam.getTeamName() + "에 추가할 신규 프로젝트명:");
+                    if (newProject != null && !newProject.trim().isEmpty()) {
+                        // 프로젝트 식별자 생성
+                        String pId = "P_" + UUID.randomUUID().toString().substring(0, 5);
+                        ProjectManager.getInstance().addProject(selectedTeam, new Project(pId, newProject.trim()));
+                        refreshAllViews();
+                    }
+                }
+            });
+
+            leaderPanel.add(btnAddProject);
+            northContainer.add(leaderPanel, BorderLayout.NORTH);
         }
 
         // 기존 상단 반반 스플릿 배치 (팀 목록 / 프로젝트 목록)
@@ -115,7 +171,7 @@ public class MainFrame extends JFrame {
         northContainer.add(topSplitPanel, BorderLayout.CENTER);
         managementTab.add(northContainer, BorderLayout.NORTH);
 
-        // 하단 전체 Task 목록 배치
+        // 하단 전체 model.Task 목록 배치
         taskPanel = new TaskPanel();
         managementTab.add(taskPanel, BorderLayout.CENTER);
 
@@ -123,10 +179,10 @@ public class MainFrame extends JFrame {
         JPanel bottomPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 10));
         bottomPanel.setBackground(Color.WHITE);
 
-        JButton btnAdd = createStyledButton("Task 추가", new Color(70, 130, 180));
+        JButton btnAdd = createStyledButton("model.Task 추가", new Color(70, 130, 180));
         JButton btnToggle = createStyledButton("완료 상태 토글 (미완료↔완료)", new Color(60, 179, 113));
-        JButton btnDelete = createStyledButton("Task 삭제", new Color(220, 20, 60));
-        JButton btnSimulateSync = createStyledButton("🔄 외부 동기화 흉내내기", Color.DARK_GRAY);
+        JButton btnDelete = createStyledButton("model.Task 삭제", new Color(220, 20, 60));
+        JButton btnSimulateSync = createStyledButton("수동 동기화", Color.DARK_GRAY);
 
         bottomPanel.add(btnSimulateSync);
         bottomPanel.add(btnAdd);
@@ -159,10 +215,10 @@ public class MainFrame extends JFrame {
     // [RBAC] 권한 검사 공통 헬퍼 메서드
     private boolean hasPermissionForSelectedTeam() {
         User currentUser = PermissionManager.getInstance().getCurrentUser();
-        // 1. 관리자(Admin)는 무조건 프리패스
+        // 1. 관리자(model.Admin)는 무조건 프리패스
         if (currentUser.isAdmin()) return true;
 
-        // 2. 일반 팀원은 선택한 팀이 로그인 시 적어낸 자기 팀과 일치할 때만 허용
+        // 2. 팀장과 일반 팀원은 선택한 팀이 로그인한 계정의 teamName과 선택한 팀명이 일치할 때만 허용
         Team selectedTeam = teamPanel.getSelectedTeam();
         if (selectedTeam != null && selectedTeam.getTeamName().equals(this.memberTeamName)) {
             return true;
@@ -170,7 +226,7 @@ public class MainFrame extends JFrame {
 
         // 권한 부족 시 팝업 띄우고 차단
         JOptionPane.showMessageDialog(this,
-                "권한 오류: 본인 소속 팀(" + this.memberTeamName + ")의 업무만 제어할 수 있습니다.",
+                "권한 오류: 본인 소속 팀(" + this.memberTeamName + ")의 업무만 관리할 수 있습니다.",
                 "접근 거부", JOptionPane.ERROR_MESSAGE);
         return false;
     }
@@ -202,7 +258,7 @@ public class MainFrame extends JFrame {
             }
         });
 
-        // Task 추가 버튼 권한 제어 연동
+        // model.Task 추가 버튼 권한 제어 연동
         btnAdd.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -216,8 +272,10 @@ public class MainFrame extends JFrame {
                 if (!hasPermissionForSelectedTeam()) return;
 
                 JTextField titleField = new JTextField();
-                JTextField startField = new JTextField("2026-05-15");
-                JTextField endField = new JTextField("2026-05-20");
+                String startDateText = LocalDate.now().toString();
+                String endDateText = LocalDate.now().plusDays(7).toString();
+                JTextField startField = new JTextField(startDateText);
+                JTextField endField = new JTextField(endDateText);
 
                 Color[] palette = {
                         new Color(246, 144, 61), new Color(54, 207, 201),
@@ -260,7 +318,7 @@ public class MainFrame extends JFrame {
             }
         });
 
-        // Task 삭제 버튼 권한 제어 연동
+        // model.Task 삭제 버튼 권한 제어 연동
         btnDelete.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -284,7 +342,7 @@ public class MainFrame extends JFrame {
             @Override
             public void actionPerformed(ActionEvent e) {
                 ProjectManager.getInstance().simulateExternalUpdate();
-                JOptionPane.showMessageDialog(MainFrame.this, "동기화 파일 외부 수정을 시뮬레이션했습니다. 약 3초 이내에 자동 반영됩니다!");
+                JOptionPane.showMessageDialog(MainFrame.this, "동기화 요청 완료. 약 3초 이내에 자동 반영됩니다.");
             }
         });
     }
@@ -295,6 +353,17 @@ public class MainFrame extends JFrame {
         taskPanel.clearTasks();
         calendarPanel.updateFilters();
         calendarPanel.refreshCalendar();
+
+        for (int i = 0; i < getComponentCount(); i++) {
+            if (getComponent(i) instanceof JTabbedPane) {
+                JTabbedPane tp = (JTabbedPane) getComponent(i);
+                for (int j = 0; j < tp.getTabCount(); j++) {
+                    if (tp.getComponent(j) instanceof UserManagementPanel) {
+                        ((UserManagementPanel) tp.getComponentAt(j)).refreshUserTable();
+                    }
+                }
+            }
+        }
     }
 
     private JButton createStyledButton(String text, Color color) {

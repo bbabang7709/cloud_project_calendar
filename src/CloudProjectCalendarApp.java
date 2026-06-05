@@ -1,3 +1,6 @@
+import gui.LoginFrame;
+import manager.ProjectManager;
+
 import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
 
@@ -5,7 +8,7 @@ public class CloudProjectCalendarApp {
 	
 	public static void main(String[] args) {
         // 프로그램 시작 시 구글 드라이브 동기화 폴더(.txt)에서 
-        // 전체 데이터를 싹 다 읽어서 메모리(ProjectManager)에 올려놓습니다.
+        // 전체 데이터를 싹 다 읽어서 메모리(manager.ProjectManager)에 올려놓습니다.
         ProjectManager.getInstance().initSystemData();
         
         // 윈도우 스타일 적용 (보기 좋게 기본 자바 모양 대신 윈도우 스타일 사용)

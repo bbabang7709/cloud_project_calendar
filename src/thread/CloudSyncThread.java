@@ -1,3 +1,9 @@
+package thread;
+
+import gui.MainFrame;
+import manager.DataManager;
+import manager.ProjectManager;
+
 import javax.swing.SwingUtilities;
 
 public class CloudSyncThread extends Thread {

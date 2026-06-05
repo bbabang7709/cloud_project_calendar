@@ -1,3 +1,10 @@
+package thread;
+
+import manager.ProjectManager;
+import model.Project;
+import model.Task;
+import model.Team;
+
 import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
 import java.time.LocalDate;
@@ -27,12 +34,12 @@ public class NotificationThread extends Thread {
                 LocalDate today = LocalDate.now();
                 List<Team> database = ProjectManager.getInstance().getDatabase();
                 
-                // 모든 미완료 Task 탐색
+                // 모든 미완료 model.Task 탐색
                 for (Team team : database) {
                     for (Project project : team.getProjects()) {
                         for (Task task : project.getTasks()) {
                             
-                            // 기간이 지나지 않았고, 아직 완료되지 않았고, 이미 알림을 보내지 않은 Task 대상
+                            // 기간이 지나지 않았고, 아직 완료되지 않았고, 이미 알림을 보내지 않은 model.Task 대상
                             if (task.isWithinRange(today) && !task.isCompleted() && !alarmedTasks.contains(task)) {
                                 try {
                                     LocalDate deadline = LocalDate.parse(task.getDeadline());

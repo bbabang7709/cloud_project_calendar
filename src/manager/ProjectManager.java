@@ -1,3 +1,9 @@
+package manager;
+
+import model.Project;
+import model.Task;
+import model.Team;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -51,7 +57,7 @@ public class ProjectManager {
         DataManager.getInstance().saveProjectMaster(database);
     }
 
-    // GUI에서 Task 추가 버튼 눌렀을 때 호출됨
+    // GUI에서 model.Task 추가 버튼 눌렀을 때 호출됨
     public void addTask(Project project, Task task) {
         project.addTask(task); // 메모리에 일단 추가
         
@@ -59,11 +65,11 @@ public class ProjectManager {
         DataManager.getInstance().saveUserTasks(task.getOwnerName(), database);
     }
 
-    // GUI에서 Task 삭제 버튼 눌렀을 때 호출됨
+    // GUI에서 model.Task 삭제 버튼 눌렀을 때 호출됨
     public void removeTask(Project project, Task task) {
         project.removeTask(task);
         
-        // 지워진 Task 주인의 파일만 다시 덮어씌움 (삭제 반영)
+        // 지워진 model.Task 주인의 파일만 다시 덮어씌움 (삭제 반영)
         DataManager.getInstance().saveUserTasks(task.getOwnerName(), database);
     }
 

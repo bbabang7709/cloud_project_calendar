@@ -1,18 +1,22 @@
+package gui;
+
+import model.Project;
+
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.event.ListSelectionListener;
 import java.awt.*;
 import java.util.List;
 
-public class TeamPanel extends JPanel {
-    private JList<Team> list;
-    private DefaultListModel<Team> model;
+public class ProjectPanel extends JPanel {
+    private JList<Project> list;
+    private DefaultListModel<Project> model;
 
-    public TeamPanel() {
+    public ProjectPanel() {
         setLayout(new BorderLayout());
         setBackground(Color.WHITE);
         setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createTitledBorder(BorderFactory.createLineBorder(new Color(230, 230, 230)), "Teams (팀 목록)"),
+                BorderFactory.createTitledBorder(BorderFactory.createLineBorder(new Color(230, 230, 230)), "Projects (프로젝트 목록)"),
                 new EmptyBorder(5, 5, 5, 5)
         ));
 
@@ -29,14 +33,18 @@ public class TeamPanel extends JPanel {
         list.addListSelectionListener(l);
     }
 
-    public void updateTeamList(List<Team> teams) {
+    public void updateProjectList(List<Project> projects) {
         model.clear();
-        for (Team t : teams) {
-            model.addElement(t);
+        for (Project p : projects) {
+            model.addElement(p);
         }
     }
 
-    public Team getSelectedTeam() {
+    public void clearProjects() {
+        model.clear();
+    }
+
+    public Project getSelectedProject() {
         return list.getSelectedValue();
     }
 }

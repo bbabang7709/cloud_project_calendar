@@ -1,3 +1,11 @@
+package gui;
+
+import model.Project;
+import model.Task;
+import model.Team;
+
+import manager.ProjectManager;
+
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
@@ -118,7 +126,7 @@ public class CalendarCanvas extends JPanel {
 
     private void drawMonthlyTaskBars(Graphics2D g2, int cw, int ch, int startGap, LocalDate firstDay) {
         List<Task> filteredTasks = calendarPanel.getFilteredAndSortedTasks();
-        Map<LocalDate, Integer> laneAllocator = new HashMap<>();
+        Map<LocalDate, List<Integer>> laneAllocator = new HashMap<>();
 
         for (int i = 0; i < filteredTasks.size(); i++) {
             Task task = filteredTasks.get(i);
@@ -138,7 +146,8 @@ public class CalendarCanvas extends JPanel {
             while (true) {
                 boolean laneFree = true;
                 for (LocalDate d = drawStart; !d.isAfter(drawEnd); d = d.plusDays(1)) {
-                    if (laneAllocator.containsKey(d) && laneAllocator.get(d) == allocatedLane) {
+                    List<Integer> takenLanes = laneAllocator.get(d);
+                    if (takenLanes != null && takenLanes.contains(allocatedLane)) {
                         laneFree = false;
                         break;
                     }
@@ -150,20 +159,20 @@ public class CalendarCanvas extends JPanel {
             int maxLanes = (ch - 25) / (TASK_BAR_HEIGHT + TASK_BAR_GAP);
             if (allocatedLane >= maxLanes - 1) {
                 for (LocalDate d = drawStart; !d.isAfter(drawEnd); d = d.plusDays(1)) {
-                    laneAllocator.put(d, allocatedLane);
+                    laneAllocator.computeIfAbsent(d, k -> new ArrayList<>()).add(allocatedLane);
                 }
                 drawMonthlyMoreIndicator(g2, cw, ch, startGap, drawStart, drawEnd, maxLanes);
                 continue;
             }
 
             for (LocalDate d = drawStart; !d.isAfter(drawEnd); d = d.plusDays(1)) {
-                laneAllocator.put(d, allocatedLane);
+                laneAllocator.computeIfAbsent(d, k -> new ArrayList<>()).add(allocatedLane);
             }
 
-            // 그래픽 렌더링 오류를 막기 위해 그라데이션 대신 깔끔한 단색(Solid) 적용
+            // model.Task 클래스 필드의 색상 변수 불러오기
             g2.setColor(task.getColor());
 
-            // 2. 완벽한 일자 계산 (ChronoUnit) 기반의 띠지 드로잉 알고리즘
+            // 일자 계산 기반의 띠지 드로잉
             LocalDate renderDate = drawStart;
             while (!renderDate.isAfter(drawEnd)) {
                 g2.setColor(task.getColor());
@@ -197,7 +206,7 @@ public class CalendarCanvas extends JPanel {
                 // 기본적으로 둥근 사각형 그리기
                 g2.fill(new RoundRectangle2D.Double(x, y, barWidth, TASK_BAR_HEIGHT, 6, 6));
 
-                // [핵심 트릭] 다음 주로 이어지면 오른쪽 모서리를 직각(Flat)으로 덮어서 안 끊어진 것처럼 보이게 함
+                // 다음 주로 이어지면 오른쪽 모서리를 직각(Flat)으로 덮어서 안 끊어진 것처럼 보이게 함
                 if (!endsThisSegment) {
                     g2.fill(new Rectangle2D.Double(x + barWidth - 6, y, 6, TASK_BAR_HEIGHT));
                 }
@@ -219,7 +228,7 @@ public class CalendarCanvas extends JPanel {
                     g2.drawString(dispTitle, textX, y + g2.getFontMetrics().getAscent() + (TASK_BAR_HEIGHT - g2.getFontMetrics().getHeight()) / 2);
                 }
 
-                // 그린 일수만큼 확실하게 날짜를 미래로 이동시킴 (버그 원천 차단)
+                // 그린 일수만큼 날짜를 이동시킴
                 renderDate = renderDate.plusDays(drawDays);
             }
         }
@@ -227,7 +236,7 @@ public class CalendarCanvas extends JPanel {
 
     private void drawWeeklyTaskBars(Graphics2D g2, int cw, int ch) {
         List<Task> filteredTasks = calendarPanel.getFilteredAndSortedTasks();
-        Map<LocalDate, Integer> laneAllocator = new HashMap<>();
+        Map<LocalDate, List<Integer>> laneAllocator = new HashMap<>();
         LocalDate weekEnd = calendarPanel.getCurrentWeekStart().plusDays(6);
 
         for (int i = 0; i < filteredTasks.size(); i++) {
@@ -245,7 +254,8 @@ public class CalendarCanvas extends JPanel {
             while (true) {
                 boolean laneFree = true;
                 for (LocalDate d = drawStart; !d.isAfter(drawEnd); d = d.plusDays(1)) {
-                    if (laneAllocator.containsKey(d) && laneAllocator.get(d) == allocatedLane) {
+                    List<Integer> takenLanes = laneAllocator.get(d);
+                    if (takenLanes != null && takenLanes.contains(allocatedLane)) {
                         laneFree = false;
                         break;
                     }
@@ -258,7 +268,7 @@ public class CalendarCanvas extends JPanel {
             if (allocatedLane >= maxLanes) continue;
 
             for (LocalDate d = drawStart; !d.isAfter(drawEnd); d = d.plusDays(1)) {
-                laneAllocator.put(d, allocatedLane);
+                laneAllocator.computeIfAbsent(d, k -> new ArrayList<>()).add(allocatedLane);
             }
 
             g2.setColor(task.getColor());
@@ -299,10 +309,10 @@ public class CalendarCanvas extends JPanel {
 
     private LocalDate parseTaskDate(Task task, boolean startDate) {
         try {
-            // 사용자의 Task 클래스 구현에 맞게 파싱
+            // 사용자의 model.Task 클래스 구현에 맞게 파싱
             return LocalDate.parse(startDate ? task.getStartDate() : task.getDeadline());
         } catch (DateTimeParseException e) {
-            System.out.println("Task 날짜 형식 오류(" + task.getTitle() + "): " + e.getParsedString());
+            System.out.println("model.Task 날짜 형식 오류(" + task.getTitle() + "): " + e.getParsedString());
             return null;
         }
     }
