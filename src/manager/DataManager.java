@@ -1,3 +1,7 @@
+package manager;
+
+import model.*;
+
 import java.awt.Color;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -20,7 +24,7 @@ public class DataManager {
 
     // 파일들의 마지막 변경 시간을 기록해두는 맵 (변경 감지용)
     private Map<String, Long> fileLastModifiedMap;
-    private boolean isMockFileChanged = false; // 시뮬레이션용 플래그
+    private boolean isFileChanged = false; // 시뮬레이션용 플래그
 
     private DataManager() {
         fileLastModifiedMap = new HashMap<>();
@@ -36,9 +40,8 @@ public class DataManager {
             taskDir.mkdirs();
         }
 
-        // 초기 구동 시 마스터 파일이 아예 없다면 테스트용 기본 뼈대 데이터를 자동으로 생성해 줌 (학생 테스트 편의용)
-        initDefaultMasterFile();
-
+        // 초기 유저 리스트 파일 생성
+        initDefaultUsersFile();
         // 초기 파일들의 수정 시간 기록
         recordFileTimestamps();
     }
@@ -47,43 +50,27 @@ public class DataManager {
         return instance;
     }
 
-    // 마스터 파일이 없을 때 기본 프로젝트 구조를 만들어주는 도우미 메서드
-    private void initDefaultMasterFile() {
-        File masterFile = new File(META_PATH + "/project_master.txt");
-        if (!masterFile.exists()) {
-            try {
-                BufferedWriter bw = new BufferedWriter(new FileWriter(masterFile));
-                // 형식: 팀명|프로젝트ID|프로젝트명
-                bw.write("소프트웨어 개발팀|P001|클라우드 고도화 패치");
-                bw.newLine();
-                bw.write("소프트웨어 개발팀|P002|보안 아키텍처 리팩토링");
-                bw.newLine();
-                bw.write("글로벌 마케팅팀|P003|2026 상반기 프로모션");
-                bw.newLine();
-                bw.close();
-                System.out.println("[DataManager] 초기 기본 마스터 파일(project_master.txt) 생성 완료!");
-            } catch (IOException e) {
-                System.out.println("기본 마스터 파일 생성 중 실패: " + e.getMessage());
-            }
-        }
-    }
-
     // 현재 폴더에 존재하는 파일들의 수정 시간을 기록해두는 헬퍼 메서드
     private void recordFileTimestamps() {
         fileLastModifiedMap.clear(); // 맵을 한 번 청소하고 다시 기록
 
-        // 1. 마스터 파일 기록
+        // 마스터 파일 기록
         File masterFile = new File(META_PATH + "/project_master.txt");
         if (masterFile.exists()) {
             fileLastModifiedMap.put(masterFile.getAbsolutePath(), masterFile.lastModified());
         }
 
-        // 2. 개별 태스크 파일들 기록
+        // 유저 목록 파일 기록
+        File usersListFile = new File(META_PATH + "/users.txt");
+        if (usersListFile.exists()) {
+            fileLastModifiedMap.put(usersListFile.getAbsolutePath(), usersListFile.lastModified());
+        }
+
+        // 개별 태스크 파일들 기록
         File taskFolder = new File(TASK_PATH);
         File[] userFiles = taskFolder.listFiles();
         if (userFiles != null) {
-            for (int i = 0; i < userFiles.length; i++) {
-                File file = userFiles[i];
+            for (File file : userFiles) {
                 if (file.isFile() && file.getName().endsWith(".txt")) {
                     fileLastModifiedMap.put(file.getAbsolutePath(), file.lastModified());
                 }
@@ -91,20 +78,32 @@ public class DataManager {
         }
     }
 
-    /**
-     * [스레드 연동 핵심 메서드]
-     * 폴더 내의 파일들을 훑어보며 마지막으로 읽은 시점보다 수정 시간이 변한 파일이 있는지 감시합니다.
-     */
+    private void initDefaultUsersFile() {
+        File userListFile = new File(META_PATH + "/users.txt");
+        if (!userListFile.exists()) {
+            try {
+                BufferedWriter bw = new BufferedWriter(new FileWriter(userListFile));
+                bw.write("admin|1111|ADMIN|N/A");
+                bw.newLine();
+                bw.close();
+                System.out.println("[manager.DataManager] 초기 사용자 리스트 파일(users.txt) 생성 완료");
+            } catch (IOException e) {
+                System.out.println("사용자 리스트 파일 생성 실패: " + e.getMessage());
+            }
+        }
+    }
+
+    // 폴더 내의 파일들을 훑어보며 마지막으로 읽은 시점보다 수정 시간이 변한 파일이 있는지 감시합니다.
     public boolean checkFileModified() {
-        // 1. 시뮬레이션 버튼에 의해 강제 트리거된 경우 즉시 수락
-        if (isMockFileChanged) {
-            isMockFileChanged = false;
+        // 수동 동기화 버튼을 누른 경우 즉시 반영
+        if (isFileChanged) {
+            isFileChanged = false;
             recordFileTimestamps(); // 기준 시간 최신화
             return true;
         }
 
-        // 2. 실제 파일들의 물리적인 최종 수정 시간 변경 확인
-        // 마스터 파일 확인
+        // 실제 파일들의 물리적인 최종 수정 시간 변경 확인
+        // 1. 마스터 파일 확인
         File masterFile = new File(META_PATH + "/project_master.txt");
         if (masterFile.exists()) {
             String path = masterFile.getAbsolutePath();
@@ -115,7 +114,18 @@ public class DataManager {
             }
         }
 
-        // 유저 태스크 폴더 내 파일 확인
+        // 2. 유저 리스트 파일 수정 감지
+        File userListFile = new File(META_PATH + "/users.txt");
+        if (userListFile.exists()) {
+            String path = userListFile.getAbsolutePath();
+            long currentModified = userListFile.lastModified();
+            if (!fileLastModifiedMap.containsKey(path) || fileLastModifiedMap.get(path) != currentModified) {
+                recordFileTimestamps();
+                return true;
+            }
+        }
+
+        // 3. 유저 태스크 폴더 내 파일 확인
         File taskFolder = new File(TASK_PATH);
         File[] userFiles = taskFolder.listFiles();
         if (userFiles != null) {
@@ -130,8 +140,7 @@ public class DataManager {
             }
             
             int actualCount = 0;
-            for (int i = 0; i < userFiles.length; i++) {
-                File file = userFiles[i];
+            for (File file : userFiles) {
                 if (file.isFile() && file.getName().endsWith(".txt")) {
                     actualCount++;
                 }
@@ -144,8 +153,7 @@ public class DataManager {
             }
 
             // 개별 파일의 수정 시간 변화 확인
-            for (int i = 0; i < userFiles.length; i++) {
-                File file = userFiles[i];
+            for (File file : userFiles) {
                 if (file.isFile() && file.getName().endsWith(".txt")) {
                     String path = file.getAbsolutePath();
                     long currentModified = file.lastModified();
@@ -161,9 +169,68 @@ public class DataManager {
         return false;
     }
 
-    // 가상 동기화 변경 유발용 시뮬레이션 메서드
+    // 수동 동기화 변경용 메서드
     public void triggerMockFileChange() {
-        this.isMockFileChanged = true;
+        this.isFileChanged = true;
+    }
+
+    public List<User> loadUsers() {
+        List<User> list = new ArrayList<>();
+        File userListFile = new File(META_PATH + "/users.txt");
+        if (userListFile.exists()) {
+            try {
+                BufferedReader br = new BufferedReader(new FileReader(userListFile));
+                String line;
+                while ((line = br.readLine()) != null) {
+                    String[] parts = line.split("\\|");
+                    if (parts.length >= 4) {
+                        String name = parts[0];
+                        String pw = parts[1];
+                        String role = parts[2];
+                        String teamName = parts[3];
+
+                        User u;
+                        if (role.equalsIgnoreCase("ADMIN")) {
+                            u = new Admin(name, pw);
+                        } else if (role.equalsIgnoreCase("LEADER")) {
+                            u = new TeamLeader(name, pw, teamName);
+                        } else {
+                            u = new Member(name, pw, teamName);
+                        }
+                        list.add(u);
+                    }
+                }
+                br.close();
+            } catch (Exception e) {
+                System.out.println("사용자 정보 로드 실패: " + e.getMessage());
+            }
+        }
+        return list;
+    }
+
+    public void saveUsers(List<User> userList) {
+        File userListFile = new File(META_PATH + "/users.txt");
+
+        try {
+            BufferedWriter bw = new BufferedWriter(new FileWriter(userListFile));
+            for (User u : userList) {
+                String role;
+                if (u.isAdmin()) {
+                    role = "ADMIN";
+                } else if (u.isLeader()) {
+                    role = "LEADER";
+                } else {
+                    role = "MEMBER";
+                }
+                bw.write(u.getName() + "|" + u.getPassword() + "|" + role + "|" + u.getTeamName());
+                bw.newLine();
+            }
+            bw.close();
+            fileLastModifiedMap.put(userListFile.getAbsolutePath(), userListFile.lastModified());
+            System.out.println("[manager.DataManager] 사용자 리스트 파일 저장 완료");
+        } catch (IOException e) {
+            System.out.println("사용자 리스트 파일 저장 에러: " + e.getMessage());
+        }
     }
 
     // 전체 데이터 로드하는 메서드 (마스터 파일 읽고 -> 유저 파일 읽음)
@@ -178,11 +245,11 @@ public class DataManager {
                 String line;
                 while ((line = br.readLine()) != null) {
                     // 팀명|프로젝트ID|프로젝트명 형식
-                    String[] parts = line.split("\\|");
-                    if (parts.length >= 3) {
+                    String[] parts = line.split("\\|", -1);
+
+                    if (parts.length >= 1) {
                         String teamName = parts[0];
-                        String pId = parts[1];
-                        String pName = parts[2];
+                        if (teamName.trim().isEmpty()) continue;
 
                         Team targetTeam = null;
                         for (int i = 0; i < database.size(); i++) {
@@ -192,17 +259,21 @@ public class DataManager {
                                 break;
                             }
                         }
-                        
+
                         if (targetTeam == null) {
                             targetTeam = new Team(teamName);
                             database.add(targetTeam);
                         }
-                        
-                        targetTeam.addProject(new Project(pId, pName));
+
+                        if (parts.length >= 3 && !parts[1].trim().isEmpty()) {
+                            String pId = parts[1];
+                            String pName = parts[2];
+                            targetTeam.addProject(new Project(pId, pName));
+                        }
                     }
                 }
                 br.close();
-            } catch (Exception e) {
+            } catch (IOException e) {
                 System.out.println("마스터 파일 읽기 에러!");
                 e.printStackTrace();
             }
@@ -296,9 +367,8 @@ public class DataManager {
     }
 
     /**
-     * [Admin 기능 보완용 메서드]
      * 관리자가 전체 프로젝트 구조(새로운 팀 추가, 새로운 프로젝트 생성 등)를 조작했을 때
-     * system_meta/project_master.txt 파일을 덮어쓰기 저장하는 핵심 메서드입니다.
+     * system_meta/project_master.txt 파일을 덮어쓰기 저장하는 메서드.
      */
     public void saveProjectMaster(List<Team> database) {
         File masterFile = new File(META_PATH + "/project_master.txt");
@@ -307,19 +377,25 @@ public class DataManager {
             
             for (int i = 0; i < database.size(); i++) {
                 Team t = database.get(i);
-                for (int j = 0; j < t.getProjects().size(); j++) {
-                    Project p = t.getProjects().get(j);
-                    // 형식: 팀명|프로젝트ID|프로젝트명
-                    String line = t.getTeamName() + "|" + p.getProjectId() + "|" + p.getProjectName();
-                    bw.write(line);
+                // 팀만 생성하고 프로젝트는 비어있는 경우, 빈 데이터 패딩 문자열(||)로 팀 데이터 소실 방지
+                if (t.getProjects().isEmpty()) {
+                    bw.write(t.getTeamName() + "||");
                     bw.newLine();
+                } else {
+                    for (int j = 0; j < t.getProjects().size(); j++) {
+                        Project p = t.getProjects().get(j);
+                        // 형식: 팀명|프로젝트ID|프로젝트명
+                        String line = t.getTeamName() + "|" + p.getProjectId() + "|" + p.getProjectName();
+                        bw.write(line);
+                        bw.newLine();
+                    }
                 }
             }
             bw.close();
             
             // 파일 쓰기 완료 후 변경 시간 맵에 강제 반영하여 감지 오작동 방지
             fileLastModifiedMap.put(masterFile.getAbsolutePath(), masterFile.lastModified());
-            System.out.println("[DataManager] 프로젝트 마스터 파일 변경 완료 및 동기화 셋업!");
+            System.out.println("[manager.DataManager] 프로젝트 마스터 파일 변경 완료 및 동기화 셋업!");
         } catch (IOException e) {
             System.out.println("프로젝트 마스터 파일 저장 실패: " + e.getMessage());
         }

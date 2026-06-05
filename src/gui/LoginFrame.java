@@ -1,3 +1,9 @@
+package gui;
+
+import model.User;
+
+import manager.PermissionManager;
+
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.border.LineBorder;
@@ -8,8 +14,8 @@ import java.awt.event.ActionListener;
 public class LoginFrame extends JFrame {
     
     public LoginFrame() {
-        setTitle("클라우드 시스템 로그인");
-        setSize(400, 300); // 입력창이 늘어나서 세로 크기를 조금 키웠습니다.
+        setTitle("시스템 로그인");
+        setSize(400, 300);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
         getContentPane().setBackground(Color.WHITE);

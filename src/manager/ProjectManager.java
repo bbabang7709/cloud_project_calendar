@@ -1,3 +1,9 @@
+package manager;
+
+import model.Project;
+import model.Task;
+import model.Team;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -24,23 +30,39 @@ public class ProjectManager {
     }
 
     // 스레드가 파일 변경을 감지했을 때 호출할 메서드
-    public void refreshMemoryFromCloud() {
+    public void refreshData() {
         this.database = DataManager.getInstance().loadAllData();
     }
 
-    // GUI에서 Task 추가 버튼 눌렀을 때 호출됨
-    public void addTaskToProject(Project project, Task task) {
+    public void addTeam(String teamName) {
+        for (Team t : database) {
+            if (t.getTeamName().equals(teamName)) {
+                return;
+            }
+        }
+
+        database.add(new Team(teamName));
+        DataManager.getInstance().saveProjectMaster(database);
+    }
+
+    public void addProject(Team team, Project project) {
+        team.addProject(project);
+        DataManager.getInstance().saveProjectMaster(database);
+    }
+
+    // GUI에서 model.Task 추가 버튼 눌렀을 때 호출됨
+    public void addTask(Project project, Task task) {
         project.addTask(task); // 메모리에 일단 추가
         
         // 추가한 Task의 주인(ownerName) 파일만 다시 저장시킴
         DataManager.getInstance().saveUserTasks(task.getOwnerName(), database);
     }
 
-    // GUI에서 Task 삭제 버튼 눌렀을 때 호출됨
-    public void removeTaskFromProject(Project project, Task task) {
+    // GUI에서 model.Task 삭제 버튼 눌렀을 때 호출됨
+    public void removeTask(Project project, Task task) {
         project.removeTask(task);
         
-        // 지워진 Task 주인의 파일만 다시 덮어씌움 (삭제 반영)
+        // 지워진 model.Task 주인의 파일만 다시 덮어씌움 (삭제 반영)
         DataManager.getInstance().saveUserTasks(task.getOwnerName(), database);
     }
 
@@ -56,7 +78,17 @@ public class ProjectManager {
         DataManager.getInstance().saveUserTasks(task.getOwnerName(), database);
     }
 
-    // GUI 구조 보호를 위한 외부 변경 시뮬레이터 우회 레이어
+    public Team getTeamByName(String teamName) {
+        Team targetTeam = null;
+        for (Team t : database) {
+            if (t.getTeamName().equals(teamName)) {
+                targetTeam = t;
+                break;
+            }
+        }
+
+        return targetTeam;
+    }
     public void simulateExternalUpdate() {
         DataManager.getInstance().triggerMockFileChange();
     }

@@ -1,18 +1,21 @@
+package gui;
+
+import model.Task;
+
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
-import javax.swing.event.ListSelectionListener;
 import java.awt.*;
 import java.util.List;
 
-public class ProjectPanel extends JPanel {
-    private JList<Project> list;
-    private DefaultListModel<Project> model;
+public class TaskPanel extends JPanel {
+    private JList<Task> list;
+    private DefaultListModel<Task> model;
 
-    public ProjectPanel() {
+    public TaskPanel() {
         setLayout(new BorderLayout());
         setBackground(Color.WHITE);
         setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createTitledBorder(BorderFactory.createLineBorder(new Color(230, 230, 230)), "Projects (프로젝트 목록)"),
+                BorderFactory.createTitledBorder(BorderFactory.createLineBorder(new Color(230, 230, 230)), "Tasks (해당 프로젝트의 전체 상세 세션 목록)"),
                 new EmptyBorder(5, 5, 5, 5)
         ));
 
@@ -25,22 +28,22 @@ public class ProjectPanel extends JPanel {
         add(new JScrollPane(list), BorderLayout.CENTER);
     }
 
-    public void addListSelectionListener(ListSelectionListener l) {
-        list.addListSelectionListener(l);
-    }
-
-    public void updateProjectList(List<Project> projects) {
+    public void refreshTaskList(List<Task> tasks) {
         model.clear();
-        for (Project p : projects) {
-            model.addElement(p);
+        for (Task t : tasks) {
+            model.addElement(t);
         }
     }
 
-    public void clearProjects() {
+    public void clearTasks() {
         model.clear();
     }
 
-    public Project getSelectedProject() {
+    public Task getSelectedTask() {
         return list.getSelectedValue();
+    }
+
+    public void repaintList() {
+        list.repaint();
     }
 }

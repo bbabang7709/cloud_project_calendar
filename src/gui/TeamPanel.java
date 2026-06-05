@@ -1,17 +1,22 @@
+package gui;
+
+import model.Team;
+
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
+import javax.swing.event.ListSelectionListener;
 import java.awt.*;
 import java.util.List;
 
-public class TaskPanel extends JPanel {
-    private JList<Task> list;
-    private DefaultListModel<Task> model;
+public class TeamPanel extends JPanel {
+    private JList<Team> list;
+    private DefaultListModel<Team> model;
 
-    public TaskPanel() {
+    public TeamPanel() {
         setLayout(new BorderLayout());
         setBackground(Color.WHITE);
         setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createTitledBorder(BorderFactory.createLineBorder(new Color(230, 230, 230)), "Tasks (해당 프로젝트의 전체 상세 세션 목록)"),
+                BorderFactory.createTitledBorder(BorderFactory.createLineBorder(new Color(230, 230, 230)), "Teams (팀 목록)"),
                 new EmptyBorder(5, 5, 5, 5)
         ));
 
@@ -24,22 +29,18 @@ public class TaskPanel extends JPanel {
         add(new JScrollPane(list), BorderLayout.CENTER);
     }
 
-    public void refreshTaskList(List<Task> tasks) {
+    public void addListSelectionListener(ListSelectionListener l) {
+        list.addListSelectionListener(l);
+    }
+
+    public void updateTeamList(List<Team> teams) {
         model.clear();
-        for (Task t : tasks) {
+        for (Team t : teams) {
             model.addElement(t);
         }
     }
 
-    public void clearTasks() {
-        model.clear();
-    }
-
-    public Task getSelectedTask() {
+    public Team getSelectedTeam() {
         return list.getSelectedValue();
-    }
-
-    public void repaintList() {
-        list.repaint();
     }
 }

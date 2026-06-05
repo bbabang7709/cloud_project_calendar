@@ -1,10 +1,12 @@
+package model;
+
 import java.util.List;
 import java.util.ArrayList;
 
 public class Project {
 	private String projectId;
 	private String projectName;
-	private List<Task> tasks; // 해당 프로젝트에 속한 Task 리스트
+	private List<Task> tasks; // 해당 프로젝트에 속한 model.Task 리스트
 	
 	public Project(String projectId, String projectName) {
 		this.projectId = projectId;

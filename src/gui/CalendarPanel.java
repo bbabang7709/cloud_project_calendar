@@ -1,3 +1,11 @@
+package gui;
+
+import model.Project;
+import model.Task;
+import model.Team;
+
+import manager.ProjectManager;
+
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
@@ -6,8 +14,9 @@ import java.awt.event.ActionListener;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
+import java.time.DayOfWeek;
+import java.time.temporal.TemporalAdjusters;
 
 public class CalendarPanel extends JPanel {
 	private CalendarCanvas calendarCanvas;
@@ -20,8 +29,10 @@ public class CalendarPanel extends JPanel {
 	private JToggleButton viewModeToggle;
 	
 	public CalendarPanel() {
-		this.currentMonth = YearMonth.of(2026, 5);
-		this.currentWeekStart = LocalDate.of(2026, 5, 10);
+		LocalDate today = LocalDate.now();
+		this.currentMonth = YearMonth.of(today.getYear(), today.getMonthValue());
+		this.currentWeekStart = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.SUNDAY));
+		//this.currentWeekStart = LocalDate.of(2026, 5, 10);
 		
 		setLayout(new BorderLayout());
 		setBackground(Color.WHITE);
@@ -103,13 +114,15 @@ public class CalendarPanel extends JPanel {
 		
 		// [수정 포인트] 누락된 monthLabel 객체를 생성하고 폰트를 지정합니다.
 		monthLabel = new JLabel("", SwingConstants.CENTER);
-		monthLabel.setFont(new Font("Segoe UI", Font.BOLD, 20));
+		monthLabel.setFont(new Font("맑은 고딕", Font.BOLD, 20));
 		
 		navLinePanel.add(prevBtn, BorderLayout.WEST);
 		navLinePanel.add(monthLabel, BorderLayout.CENTER);
 		navLinePanel.add(nextBtn, BorderLayout.EAST);
 		topControllerPanel.add(navLinePanel);
-		
+
+		add(topControllerPanel, BorderLayout.NORTH);
+
 		// 일 ~ 토 요일 가이드 패널
 		JPanel dayHeaderPanel = new JPanel(new GridLayout(1, 7));
 		dayHeaderPanel.setBackground(Color.WHITE);
