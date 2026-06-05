@@ -66,10 +66,7 @@ public class LoginFrame extends JFrame {
                 // PermissionManager를 통해 인증 시도
                 User authenticatedUser = PermissionManager.getInstance().loginOrRegister(inputName, inputPw);
                 
-                if (authenticatedUser == null) {
-                    // null이 반환된 경우는 아이디는 있는데 비밀번호가 틀린 경우입니다.
-                    JOptionPane.showMessageDialog(LoginFrame.this, "비밀번호가 일치하지 않습니다.", "로그인 실패", JOptionPane.ERROR_MESSAGE);
-                } else {
+                if (authenticatedUser != null) {
                     // 인증 성공 또는 신규 가입 성공
                     PermissionManager.getInstance().setCurrentUser(authenticatedUser);
                     

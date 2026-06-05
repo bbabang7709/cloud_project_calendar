@@ -375,7 +375,7 @@ public class CalendarCanvas extends JPanel {
                 }
             }
 
-            StringBuilder sb = new StringBuilder("📅 상세 일정 브리핑: " + clickedDate + "\n===============================\n\n");
+            StringBuilder sb = new StringBuilder("📅 상세 일정 브리핑: " + clickedDate + "\n\n");
             if (matchDetails.isEmpty()) {
                 sb.append("등록된 중요 스케줄이 없습니다.");
             } else {

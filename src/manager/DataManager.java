@@ -182,7 +182,7 @@ public class DataManager {
                 BufferedReader br = new BufferedReader(new FileReader(userListFile));
                 String line;
                 while ((line = br.readLine()) != null) {
-                    String[] parts = line.split("\\|");
+                    String[] parts = line.split("\\|", -1);
                     if (parts.length >= 4) {
                         String name = parts[0];
                         String pw = parts[1];

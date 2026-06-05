@@ -20,6 +20,7 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.time.LocalDate;
 
+import java.util.UUID;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -39,7 +40,7 @@ public class MainFrame extends JFrame {
     public MainFrame() {
         User currentUser = PermissionManager.getInstance().getCurrentUser();
 
-        // 관리자가 아닌데 미소속인 경우(Member) 로그인 시 대기 안내 팝업 출력
+        // 관리자가 아닌데 미소속인 경우 로그인 시 대기 안내 팝업 출력
         if (!currentUser.isAdmin() && currentUser.getTeamName().equals("N/A")) {
             JOptionPane.showMessageDialog(null,
                     "현재 소속된 팀이 없습니다.\n관리자 또는 팀장의 팀 배치를 기다려주세요.",
@@ -48,6 +49,7 @@ public class MainFrame extends JFrame {
 
         String titlePrefix = currentUser.isAdmin() ? "[관리자] " :
                              currentUser.isLeader() ? "[" + currentUser.getTeamName() + "] " :
+                             currentUser.getTeamName().equals("N/A") ? "" :
                              "[" + memberTeamName + " 팀원] ";
 
         setTitle("클라우드 캘린더 - " + titlePrefix + currentUser.getName());
@@ -72,7 +74,7 @@ public class MainFrame extends JFrame {
         JPanel northContainer = new JPanel(new BorderLayout(0, 10));
         northContainer.setBackground(Color.WHITE);
 
-        // [RBAC] 관리자 & 팀장 전용 조작 패널
+        // 관리자 & 팀장 전용 조작 패널
         if (currentUser.isAdmin() || currentUser.isLeader()) {
             JPanel controlPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
             controlPanel.setBackground(Color.WHITE);
@@ -80,9 +82,11 @@ public class MainFrame extends JFrame {
                     "[" + currentUser.getTeamName() + "] 팀장 프로젝트 관리";
             controlPanel.setBorder(BorderFactory.createTitledBorder(BorderFactory.createLineBorder(Color.LIGHT_GRAY), borderTitle));
 
-            // 관리자 전용 팀 개설
+            // 관리자 전용: 팀 추가
             if (currentUser.isAdmin()) {
                 JButton btnAddTeam = createStyledButton("팀 추가 (+)", new Color(255, 140, 0));
+                JButton btnRemoveTeam = createStyledButton("팀 삭제 (-)", new Color(220, 20, 60));
+
                 btnAddTeam.addActionListener(e -> {
                     String newTeam = JOptionPane.showInputDialog(this, "신규 팀 이름을 입력하세요.");
                     if (newTeam != null && !newTeam.trim().isEmpty()) {
@@ -90,36 +94,67 @@ public class MainFrame extends JFrame {
                         refreshAllViews();
                     }
                 });
+                btnRemoveTeam.addActionListener(e -> {
+                   Team targetTeam = teamPanel.getSelectedTeam();
+                   if (targetTeam == null) {
+                       JOptionPane.showMessageDialog(this, "삭제할 팀을 선택하세요.", "안내", JOptionPane.WARNING_MESSAGE);
+                       return;
+                   }
+                    int confirm = JOptionPane.showConfirmDialog(this,
+                            "정말 [" + targetTeam.getTeamName() + "] 팀을 삭제하시겠습니까?\n이 작업은 되돌릴 수 없으며, 소속 팀원들은 모두 '미소속'으로 강등됩니다.",
+                            "팀 삭제 경고", JOptionPane.YES_NO_OPTION, JOptionPane.ERROR_MESSAGE);
+
+                    if (confirm == JOptionPane.YES_OPTION) {
+                        ProjectManager.getInstance().removeTeam(targetTeam);
+                        PermissionManager.getInstance().onRemoveTeam(targetTeam.getTeamName()); // 뿔뿔이 흩어짐
+                        refreshAllViews();
+                    }
+                });
+
                 controlPanel.add(btnAddTeam);
+                controlPanel.add(btnRemoveTeam);
+
+                controlPanel.add(new JLabel("  |  "));
             }
 
             // 관리자 + 팀장 : 프로젝트 추가 버튼
             JButton btnAddProject = createStyledButton("프로젝트 추가 (+)", new Color(255, 140, 0));
-            btnAddProject.addActionListener(e -> {
-                Team targetTeam = null;
+            JButton btnRemoveProject = createStyledButton("프로젝트 삭제 (-)", new Color(220, 20, 60));
 
-                if (currentUser.isAdmin()) {
-                    // 관리자는 리스트에서 선택한 팀에 대해 프로젝트 추가 가능
-                    targetTeam = teamPanel.getSelectedTeam();
-                    if (targetTeam == null) {
-                        JOptionPane.showMessageDialog(this, "프로젝트를 추가할 팀을 선택해주세요.");
-                        return;
-                    }
-                } else {
-                    // 팀장은 본인이 소속된 팀의 프로젝트만 추가 가능
-                    targetTeam = ProjectManager.getInstance().getTeamByName(currentUser.getTeamName());
+            btnAddProject.addActionListener(e -> {
+                Team targetTeam = currentUser.isAdmin() ? teamPanel.getSelectedTeam() : ProjectManager.getInstance().getTeamByName(currentUser.getTeamName());
+                if (targetTeam == null) {
+                    JOptionPane.showMessageDialog(this, "프로젝트를 추가할 '팀'을 먼저 선택하세요.");
+                    return;
+                }
+                String newProject = JOptionPane.showInputDialog(this, targetTeam.getTeamName() + "에 추가할 신규 프로젝트명:");
+                if (newProject != null && !newProject.trim().isEmpty()) {
+                    String pId = "P_" + UUID.randomUUID().toString().substring(0, 5);
+                    ProjectManager.getInstance().addProject(targetTeam, new Project(pId, newProject.trim()));
+                    refreshAllViews();
+                }
+            });
+
+            btnRemoveProject.addActionListener(e -> {
+                Team targetTeam = currentUser.isAdmin() ? teamPanel.getSelectedTeam() : ProjectManager.getInstance().getTeamByName(currentUser.getTeamName());
+                Project targetProject = projectPanel.getSelectedProject();
+
+                if (targetTeam == null || targetProject == null) {
+                    JOptionPane.showMessageDialog(this, "삭제할 프로젝트를 선택하세요.", "안내", JOptionPane.WARNING_MESSAGE);
+                    return;
                 }
 
-                if (targetTeam != null) {
-                    String newProject = JOptionPane.showInputDialog(this, targetTeam.getTeamName() + "에 추가할 신규 프로젝트명");
-                    if (newProject != null && !newProject.trim().isEmpty()) {
-                        String pId = "P_" + java.util.UUID.randomUUID().toString().substring(0, 5);
-                        ProjectManager.getInstance().addProject(targetTeam, new Project(pId, newProject.trim()));
-                        refreshAllViews();
-                    }
+                int confirm = JOptionPane.showConfirmDialog(this,
+                        "정말 [" + targetProject.getProjectName() + "] 프로젝트를 삭제하시겠습니까?",
+                        "프로젝트 삭제", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+
+                if (confirm == JOptionPane.YES_OPTION) {
+                    ProjectManager.getInstance().removeProject(targetTeam, targetProject);
+                    refreshAllViews();
                 }
             });
             controlPanel.add(btnAddProject);
+            controlPanel.add(btnRemoveProject);
             northContainer.add(controlPanel, BorderLayout.NORTH);
         }
 

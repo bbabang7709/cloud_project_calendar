@@ -45,12 +45,25 @@ public class ProjectManager {
         DataManager.getInstance().saveProjectMaster(database);
     }
 
+    // 특정 팀 삭제 후 마스터 파일 갱신
+    public void removeTeam(Team team) {
+        if (database.remove(team)) {
+            DataManager.getInstance().saveProjectMaster(database);
+        }
+    }
+
     public void addProject(Team team, Project project) {
         team.addProject(project);
         DataManager.getInstance().saveProjectMaster(database);
     }
 
-    // GUI에서 model.Task 추가 버튼 눌렀을 때 호출됨
+    // 특정 프로젝트 삭제 후 마스터 파일 갱신
+    public void removeProject(Team team, Project project) {
+        team.getProjects().remove(project);
+        DataManager.getInstance().saveProjectMaster(database);
+    }
+
+    // GUI에서 Task 추가 버튼 눌렀을 때 호출됨
     public void addTask(Project project, Task task) {
         project.addTask(task); // 메모리에 일단 추가
         
@@ -58,7 +71,7 @@ public class ProjectManager {
         DataManager.getInstance().saveUserTasks(task.getOwnerName(), database);
     }
 
-    // GUI에서 model.Task 삭제 버튼 눌렀을 때 호출됨
+    // GUI에서 Task 삭제 버튼 눌렀을 때 호출됨
     public void removeTask(Project project, Task task) {
         project.removeTask(task);
         

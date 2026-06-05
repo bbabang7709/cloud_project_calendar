@@ -17,7 +17,7 @@ public class PermissionManager {
 	
 	private PermissionManager() {
 		userList = DataManager.getInstance().loadUsers();
-		// 관리용 model.Admin 추가
+		// 관리용 Admin 계정 추가
 		userList.add(new Admin("admin", "1111"));
 	}
 	
@@ -85,6 +85,21 @@ public class PermissionManager {
 		}
 
 		DataManager.getInstance().saveUsers(userList);
+	}
+	// 팀이 삭제될 때 해당 팀에 소속된 모든 팀원들을 미소속(N/A)로 지정하는 메서드
+	public void onRemoveTeam(String teamName) {
+		for (int i = 0; i < userList.size(); i++) {
+			User u = userList.get(i);
+			// 팀장 및 팀원은 미소속(N/A)로 초기화
+			if (u.getTeamName().equals(teamName) && !u.isAdmin()) {
+				userList.set(i, new Member(u.getName(), u.getPassword(), "N/A"));
+
+				// 만약 현재 로그인한 유저 본인이 삭제된 팀 소속이었다면, 세션도 갱신
+				if (currentUser != null && currentUser.getName().equals(u.getName())) {
+					currentUser = userList.get(i);
+				}
+			}
+		}
 	}
 
 	// 영입 가능한 미소속 유저 목록만 필터링하여 반환
