@@ -13,10 +13,7 @@ public class DataManager {
     private final static DataManager instance = new DataManager();
 
     // 파일 저장할 기본 경로 설정
-    private File saveFolder = new File("G:/내 드라이브/scheduler_data");
-    private final String BASE_PATH = saveFolder.getAbsolutePath();
-    private final String META_PATH = BASE_PATH + "/system_meta";
-    private final String TASK_PATH = BASE_PATH + "/user_tasks";
+    private File saveFolder = new File("scheduler_data");
 
     // 파일들의 마지막 변경 시간을 기록해두는 맵 (변경 감지용)
     private Map<String, Long> fileLastModifiedMap;
@@ -26,12 +23,12 @@ public class DataManager {
         fileLastModifiedMap = new HashMap<>();
 
         // 프로그램 켜질 때 폴더가 없으면 만들어줌
-        File metaDir = new File(META_PATH);
+        File metaDir = new File(getMetaPath());
         if (!metaDir.exists()) {
             metaDir.mkdirs();
         }
 
-        File taskDir = new File(TASK_PATH);
+        File taskDir = new File(getTaskPath());
         if (!taskDir.exists()) {
             taskDir.mkdirs();
         }
@@ -41,23 +38,43 @@ public class DataManager {
         return instance;
     }
 
-    public void setSaveFolderPath(String path) {
+    private String getMetaPath() {
+        return new File(saveFolder, "system_meta").getAbsolutePath();
+    }
+
+    private String getTaskPath() {
+        return new File(saveFolder, "user_tasks").getAbsolutePath();
+    }
+
+    private void ensureDirectories() {
+        File metaDir = new File(getMetaPath());
+        if (!metaDir.exists()) {
+            metaDir.mkdirs();
+        }
+
+        File taskDir = new File(getTaskPath());
+        if (!taskDir.exists()) {
+            taskDir.mkdirs();
+        }
+    }
+
+    public synchronized void setSaveFolderPath(String path) {
         if (path != null && !path.trim().isEmpty()) {
             this.saveFolder = new File(path);
-            if (!this.saveFolder.exists()) {
-                this.saveFolder.mkdirs();
-            }
+            ensureDirectories();
+            fileLastModifiedMap.clear();
             System.out.println("[DataManager] 동기화 디렉토리 설정 완료: " + this.saveFolder.getAbsolutePath());
         }
     }
 
-    public String getSaveFolderPath() {
+    public synchronized String getSaveFolderPath() {
         return this.saveFolder.getAbsolutePath();
     }
 
-    public List<User> loadUsers() {
+    public synchronized List<User> loadUsers() {
         List<User> list = new ArrayList<>();
-        File file = new File(META_PATH + "/users.txt");
+        ensureDirectories();
+        File file = new File(getMetaPath(), "users.txt");
 
         if (!file.exists()) {
             return list;
@@ -101,8 +118,9 @@ public class DataManager {
         return list;
     }
 
-    public void saveUsers(List<User> users) {
-        File file = new File(META_PATH + "/users.txt");
+    public synchronized void saveUsers(List<User> users) {
+        ensureDirectories();
+        File file = new File(getMetaPath(), "users.txt");
         try {
             BufferedWriter bw = new BufferedWriter(new FileWriter(file));
             for (int i = 0; i < users.size(); i++) {
@@ -132,9 +150,10 @@ public class DataManager {
         }
     }
 
-    public List<Team> loadAllData() {
+    public synchronized List<Team> loadAllData() {
         List<Team> list = new ArrayList<>();
-        File masterFile = new File(META_PATH + "/project_master.txt");
+        ensureDirectories();
+        File masterFile = new File(getMetaPath(), "project_master.txt");
 
         if (!masterFile.exists()) {
             return list;
@@ -187,8 +206,9 @@ public class DataManager {
         return list;
     }
 
-    public void saveProjectMaster(List<Team> database) {
-        File masterFile = new File(META_PATH + "/project_master.txt");
+    public synchronized void saveProjectMaster(List<Team> database) {
+        ensureDirectories();
+        File masterFile = new File(getMetaPath(), "project_master.txt");
         try {
             BufferedWriter bw = new BufferedWriter(new FileWriter(masterFile));
 
@@ -220,7 +240,7 @@ public class DataManager {
     }
 
     private void loadAllUserTasks(List<Team> database) {
-        File taskDir = new File(TASK_PATH);
+        File taskDir = new File(getTaskPath());
         File[] files = taskDir.listFiles((dir, name) -> name.endsWith("_tasks.txt"));
 
         if (files == null) return;
@@ -270,8 +290,9 @@ public class DataManager {
         }
     }
 
-    public void saveUserTasks(String ownerName, List<Team> database) {
-        File f = new File(TASK_PATH + "/" + ownerName + "_tasks.txt");
+    public synchronized void saveUserTasks(String ownerName, List<Team> database) {
+        ensureDirectories();
+        File f = new File(getTaskPath(), ownerName + "_tasks.txt");
         List<Task> userTasks = new ArrayList<>();
 
         // 1. 전체 목록에서 이 유저(ownerName)가 생성한 Task들만 싹 다 긁어모으기
@@ -310,14 +331,15 @@ public class DataManager {
         }
     }
 
-    public boolean checkFileModified() {
+    public synchronized boolean checkFileModified() {
         if (isFileChanged) {
             isFileChanged = false; // 플래그를 읽었으니 다시 초기화
             return true;
         }
 
         // 마스터 파일 타임스탬프 검사
-        File masterFile = new File(META_PATH + "/project_master.txt");
+        ensureDirectories();
+        File masterFile = new File(getMetaPath(), "project_master.txt");
         if (masterFile.exists()) {
             Long lastTime = fileLastModifiedMap.get(masterFile.getAbsolutePath());
             if (lastTime != null && masterFile.lastModified() > lastTime) {
@@ -326,12 +348,12 @@ public class DataManager {
         }
 
         // Task 디렉토리 내부의 모든 파일 검사
-        File taskDir = new File(TASK_PATH);
+        File taskDir = new File(getTaskPath());
         File[] files = taskDir.listFiles((dir, name) -> name.endsWith("_tasks.txt"));
         if (files != null) {
             for (File f : files) {
                 Long lastTime = fileLastModifiedMap.get(f.getAbsolutePath());
-                if (lastTime != null && f.lastModified() > lastTime) {
+                if (lastTime == null || f.lastModified() > lastTime) {
                     return true;
                 }
             }
@@ -339,7 +361,7 @@ public class DataManager {
         return false;
     }
 
-    public void triggerFileChange() {
+    public synchronized void triggerFileChange() {
         this.isFileChanged = true;
     }
 }

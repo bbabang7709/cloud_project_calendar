@@ -5,7 +5,9 @@ import model.Task;
 import model.Team;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 public class ProjectManager {
     private final static ProjectManager instance = new ProjectManager();
@@ -19,22 +21,36 @@ public class ProjectManager {
         return instance;
     }
 
-    public List<Team> getDatabase() {
-        return database;
+    public synchronized List<Team> getDatabase() {
+        return new ArrayList<>(database);
     }
 
-    // 프로그램 시작할 때 파일에서 데이터 싹 다 가져옴
-    public void initSystemData() {
+    public synchronized List<Team> getDatabaseSnapshot() {
+        List<Team> snapshot = new ArrayList<>();
+        for (Team team : database) {
+            Team copiedTeam = new Team(team.getTeamName());
+            for (Project project : team.getProjects()) {
+                Project copiedProject = new Project(project.getProjectId(), project.getProjectName());
+                for (Task task : project.getTasks()) {
+                    copiedProject.addTask(task);
+                }
+                copiedTeam.addProject(copiedProject);
+            }
+            snapshot.add(copiedTeam);
+        }
+        return snapshot;
+    }
+
+    public synchronized void initSystemData() {
         this.database = DataManager.getInstance().loadAllData();
-        System.out.println("데이터 초기화 완료!");
+        System.out.println("Data init completed!");
     }
 
-    // 스레드가 파일 변경을 감지했을 때 호출할 메서드
-    public void refreshData() {
+    public synchronized void refreshData() {
         this.database = DataManager.getInstance().loadAllData();
     }
 
-    public void addTeam(String teamName) {
+    public synchronized void addTeam(String teamName) {
         for (Team t : database) {
             if (t.getTeamName().equals(teamName)) {
                 return;
@@ -45,64 +61,79 @@ public class ProjectManager {
         DataManager.getInstance().saveProjectMaster(database);
     }
 
-    // 특정 팀 삭제 후 마스터 파일 갱신
-    public void removeTeam(Team team) {
+    public synchronized void removeTeam(Team team) {
+        Set<String> owners = collectOwners(team);
         if (database.remove(team)) {
             DataManager.getInstance().saveProjectMaster(database);
+            saveOwners(owners);
         }
     }
 
-    public void addProject(Team team, Project project) {
+    public synchronized void addProject(Team team, Project project) {
         team.addProject(project);
         DataManager.getInstance().saveProjectMaster(database);
     }
 
-    // 특정 프로젝트 삭제 후 마스터 파일 갱신
-    public void removeProject(Team team, Project project) {
-        team.getProjects().remove(project);
-        DataManager.getInstance().saveProjectMaster(database);
-    }
-
-    // GUI에서 Task 추가 버튼 눌렀을 때 호출됨
-    public void addTask(Project project, Task task) {
-        project.addTask(task); // 메모리에 일단 추가
-        
-        // 추가한 Task의 주인(ownerName) 파일만 다시 저장시킴
-        DataManager.getInstance().saveUserTasks(task.getOwnerName(), database);
-    }
-
-    // GUI에서 Task 삭제 버튼 눌렀을 때 호출됨
-    public void removeTask(Project project, Task task) {
-        project.removeTask(task);
-        
-        // 지워진 model.Task 주인의 파일만 다시 덮어씌움 (삭제 반영)
-        DataManager.getInstance().saveUserTasks(task.getOwnerName(), database);
-    }
-
-    // GUI에서 완료 토글 버튼 눌렀을 때 호출됨
-    public void toggleTaskCompletion(Task task) {
-        if (task.isCompleted()) {
-            task.setCompleted(false);
-        } else {
-            task.setCompleted(true);
+    public synchronized void removeProject(Team team, Project project) {
+        Set<String> owners = collectOwners(project);
+        if (team.getProjects().remove(project)) {
+            DataManager.getInstance().saveProjectMaster(database);
+            saveOwners(owners);
         }
-        
-        // 상태가 바뀐 주인의 파일을 저장
+    }
+
+    public synchronized void addTask(Project project, Task task) {
+        project.addTask(task);
         DataManager.getInstance().saveUserTasks(task.getOwnerName(), database);
     }
 
-    public Team getTeamByName(String teamName) {
-        Team targetTeam = null;
+    public synchronized void removeTask(Project project, Task task) {
+        if (project.getTasks().remove(task)) {
+            DataManager.getInstance().saveUserTasks(task.getOwnerName(), database);
+        }
+    }
+
+    public synchronized void toggleTaskCompletion(Task task) {
+        task.setCompleted(!task.isCompleted());
+        DataManager.getInstance().saveUserTasks(task.getOwnerName(), database);
+    }
+
+    public synchronized Team getTeamByName(String teamName) {
         for (Team t : database) {
             if (t.getTeamName().equals(teamName)) {
-                targetTeam = t;
-                break;
+                return t;
             }
         }
-
-        return targetTeam;
+        return null;
     }
+
     public void simulateExternalUpdate() {
         DataManager.getInstance().triggerFileChange();
+    }
+
+    private Set<String> collectOwners(Team team) {
+        Set<String> owners = new HashSet<>();
+        if (team == null) return owners;
+
+        for (Project project : team.getProjects()) {
+            owners.addAll(collectOwners(project));
+        }
+        return owners;
+    }
+
+    private Set<String> collectOwners(Project project) {
+        Set<String> owners = new HashSet<>();
+        if (project == null) return owners;
+
+        for (Task task : project.getTasks()) {
+            owners.add(task.getOwnerName());
+        }
+        return owners;
+    }
+
+    private void saveOwners(Set<String> owners) {
+        for (String owner : owners) {
+            DataManager.getInstance().saveUserTasks(owner, database);
+        }
     }
 }

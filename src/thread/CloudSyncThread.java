@@ -20,7 +20,7 @@ public class CloudSyncThread extends Thread {
 
     @Override
     public void run() {
-        System.out.println("[동기화 스레드] 구글 드라이브 파일 폴링 감시 시작...");
+        System.out.println("[CloudSyncThread] 구글 드라이브 파일 폴링 감시 시작...");
         
         while (isRunning) {
             try {
@@ -29,7 +29,7 @@ public class CloudSyncThread extends Thread {
 
                 // DataManager를 통해 구글 드라이브 로컬 동기화 파일이 변경되었는지 감시
                 if (DataManager.getInstance().checkFileModified()) {
-                    System.out.println("[동기화 스레드] 외부 변경 감지! 메모리 리로드 및 GUI 갱신 진행");
+                    System.out.println("[CloudSyncThread] 외부 변경 감지! 메모리 리로드 및 GUI 갱신 진행");
                     
                     // 메모리상의 DB 최신 데이터로 동기화
                     ProjectManager.getInstance().refreshData();
@@ -43,7 +43,7 @@ public class CloudSyncThread extends Thread {
                     });
                 }
             } catch (InterruptedException e) {
-                System.out.println("[동기화 스레드] 스레드 중단됨");
+                System.out.println("[CloudSyncThread] 스레드 중단됨");
                 isRunning = false;
             }
         }
