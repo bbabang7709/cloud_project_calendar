@@ -50,7 +50,7 @@ public class UserManagementPanel extends JPanel {
         controlPanel.setBackground(Color.WHITE);
 
         btnPromote = createStyledButton("팀장 지정 (Leader)", new Color(70, 130, 180));
-        btnDemote = createStyledButton("팀원 지정 (model.Member)", new Color(119, 136, 153));
+        btnDemote = createStyledButton("팀원 지정 (Member)", new Color(119, 136, 153));
         btnAssignTeam = createStyledButton("팀 배정", new Color(255, 140, 0));
 
         controlPanel.add(btnPromote);

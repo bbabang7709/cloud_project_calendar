@@ -116,6 +116,8 @@ public class LoginFrame extends JFrame {
                 MainFrame mainFrame = new MainFrame();
                 mainFrame.setVisible(true);
                 dispose();
+            } else {
+                JOptionPane.showMessageDialog(LoginFrame.this, "로그인 실패. 아이디(이름)과 비밀번호를 확인하세요.");
             }
         });
 
