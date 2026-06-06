@@ -169,7 +169,7 @@ public class CalendarCanvas extends JPanel {
                 laneAllocator.computeIfAbsent(d, k -> new ArrayList<>()).add(allocatedLane);
             }
 
-            // model.Task 클래스 필드의 색상 변수 불러오기
+            // Task 클래스 필드의 색상 변수 불러오기
             g2.setColor(task.getColor());
 
             // 일자 계산 기반의 띠지 드로잉

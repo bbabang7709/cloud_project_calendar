@@ -35,10 +35,11 @@ public class MainFrame extends JFrame {
     private NotificationThread alarmThread; // 유저 스레드명에 맞게 매핑
 
     // [권한 제어용] 일반 팀원 로그인 시 본인 소속 팀을 저장하는 변수
-    private String memberTeamName = null;
+    private String memberTeamName;
 
     public MainFrame() {
         User currentUser = PermissionManager.getInstance().getCurrentUser();
+        memberTeamName = currentUser.getTeamName();
 
         // 관리자가 아닌데 미소속인 경우 로그인 시 대기 안내 팝업 출력
         if (!currentUser.isAdmin() && currentUser.getTeamName().equals("N/A")) {
@@ -223,7 +224,7 @@ public class MainFrame extends JFrame {
     // 권한 확인 메서드
     private boolean hasPermissionForSelectedTeam() {
         User currentUser = PermissionManager.getInstance().getCurrentUser();
-        // 1. 관리자(model.Admin)는 무조건 프리패스
+        // 1. 관리자(Admin)는 무조건 프리패스
         if (currentUser.isAdmin()) return true;
 
         // 2. 팀장과 일반 팀원은 선택한 팀이 로그인한 계정의 teamName과 선택한 팀명이 일치할 때만 허용
@@ -266,7 +267,7 @@ public class MainFrame extends JFrame {
             }
         });
 
-        // model.Task 추가 버튼 권한 제어 연동
+        // Task 추가 버튼 권한 제어 연동
         btnAdd.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {

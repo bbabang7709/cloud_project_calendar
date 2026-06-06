@@ -8,7 +8,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class ProjectManager {
-    private static ProjectManager instance = new ProjectManager();
+    private final static ProjectManager instance = new ProjectManager();
     private List<Team> database;
 
     private ProjectManager() {
@@ -103,6 +103,6 @@ public class ProjectManager {
         return targetTeam;
     }
     public void simulateExternalUpdate() {
-        DataManager.getInstance().triggerMockFileChange();
+        DataManager.getInstance().triggerFileChange();
     }
 }
