@@ -13,7 +13,7 @@ public class DataManager {
     private final static DataManager instance = new DataManager();
 
     // 파일 저장할 기본 경로 설정
-    private File saveFolder = new File("scheduler_data");
+    private File saveFolder = new File(".");
 
     // 파일들의 마지막 변경 시간을 기록해두는 맵 (변경 감지용)
     private Map<String, Long> fileLastModifiedMap;
