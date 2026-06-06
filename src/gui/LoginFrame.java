@@ -98,7 +98,7 @@ public class LoginFrame extends JFrame {
             }
 
             // DataManager에 선택한 폴더 경로 주입
-            DataManager.getInstance().setSaveFolderPath(folderPath);
+            DataManager.getInstance().setSaveFolderPath(folderPath + "/scheduler_data");
 
             // 주입된 폴더 기반으로 파일 데이터베이스 리로드
             List<User> loadedUsers = DataManager.getInstance().loadUsers();
