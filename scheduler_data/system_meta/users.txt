@@ -1,2 +1,0 @@
-admin|1111|ADMIN|N/A
-김동익|1111|LEADER|Team02
