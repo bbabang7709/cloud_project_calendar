@@ -3,22 +3,18 @@ package manager;
 import model.*;
 
 import java.awt.Color;
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileReader;
-import java.io.FileWriter;
-import java.io.IOException;
+import java.io.*;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 public class DataManager {
-    private static DataManager instance = new DataManager();
-    
+    private final static DataManager instance = new DataManager();
+
     // 파일 저장할 기본 경로 설정
-    private final String BASE_PATH = "G:/내 드라이브/scheduler_data";
+    private File saveFolder = new File("G:/내 드라이브/scheduler_data");
+    private final String BASE_PATH = saveFolder.getAbsolutePath();
     private final String META_PATH = BASE_PATH + "/system_meta";
     private final String TASK_PATH = BASE_PATH + "/user_tasks";
 
@@ -34,347 +30,168 @@ public class DataManager {
         if (!metaDir.exists()) {
             metaDir.mkdirs();
         }
-        
+
         File taskDir = new File(TASK_PATH);
         if (!taskDir.exists()) {
             taskDir.mkdirs();
         }
-
-        // 초기 유저 리스트 파일 생성
-        initDefaultUsersFile();
-        // 초기 파일들의 수정 시간 기록
-        recordFileTimestamps();
     }
 
     public static DataManager getInstance() {
         return instance;
     }
 
-    // 현재 폴더에 존재하는 파일들의 수정 시간을 기록해두는 헬퍼 메서드
-    private void recordFileTimestamps() {
-        fileLastModifiedMap.clear(); // 맵을 한 번 청소하고 다시 기록
-
-        // 마스터 파일 기록
-        File masterFile = new File(META_PATH + "/project_master.txt");
-        if (masterFile.exists()) {
-            fileLastModifiedMap.put(masterFile.getAbsolutePath(), masterFile.lastModified());
-        }
-
-        // 유저 목록 파일 기록
-        File usersListFile = new File(META_PATH + "/users.txt");
-        if (usersListFile.exists()) {
-            fileLastModifiedMap.put(usersListFile.getAbsolutePath(), usersListFile.lastModified());
-        }
-
-        // 개별 태스크 파일들 기록
-        File taskFolder = new File(TASK_PATH);
-        File[] userFiles = taskFolder.listFiles();
-        if (userFiles != null) {
-            for (File file : userFiles) {
-                if (file.isFile() && file.getName().endsWith(".txt")) {
-                    fileLastModifiedMap.put(file.getAbsolutePath(), file.lastModified());
-                }
+    public void setSaveFolderPath(String path) {
+        if (path != null && !path.trim().isEmpty()) {
+            this.saveFolder = new File(path);
+            if (!this.saveFolder.exists()) {
+                this.saveFolder.mkdirs();
             }
+            System.out.println("[DataManager] 동기화 디렉토리 설정 완료: " + this.saveFolder.getAbsolutePath());
         }
     }
 
-    private void initDefaultUsersFile() {
-        File userListFile = new File(META_PATH + "/users.txt");
-        if (!userListFile.exists()) {
-            try {
-                BufferedWriter bw = new BufferedWriter(new FileWriter(userListFile));
-                bw.write("admin|1111|ADMIN|N/A");
-                bw.newLine();
-                bw.close();
-                System.out.println("[manager.DataManager] 초기 사용자 리스트 파일(users.txt) 생성 완료");
-            } catch (IOException e) {
-                System.out.println("사용자 리스트 파일 생성 실패: " + e.getMessage());
-            }
-        }
-    }
-
-    // 폴더 내의 파일들을 훑어보며 마지막으로 읽은 시점보다 수정 시간이 변한 파일이 있는지 감시합니다.
-    public boolean checkFileModified() {
-        // 수동 동기화 버튼을 누른 경우 즉시 반영
-        if (isFileChanged) {
-            isFileChanged = false;
-            recordFileTimestamps(); // 기준 시간 최신화
-            return true;
-        }
-
-        // 실제 파일들의 물리적인 최종 수정 시간 변경 확인
-        // 1. 마스터 파일 확인
-        File masterFile = new File(META_PATH + "/project_master.txt");
-        if (masterFile.exists()) {
-            String path = masterFile.getAbsolutePath();
-            long currentModified = masterFile.lastModified();
-            if (!fileLastModifiedMap.containsKey(path) || fileLastModifiedMap.get(path) != currentModified) {
-                recordFileTimestamps();
-                return true;
-            }
-        }
-
-        // 2. 유저 리스트 파일 수정 감지
-        File userListFile = new File(META_PATH + "/users.txt");
-        if (userListFile.exists()) {
-            String path = userListFile.getAbsolutePath();
-            long currentModified = userListFile.lastModified();
-            if (!fileLastModifiedMap.containsKey(path) || fileLastModifiedMap.get(path) != currentModified) {
-                recordFileTimestamps();
-                return true;
-            }
-        }
-
-        // 3. 유저 태스크 폴더 내 파일 확인
-        File taskFolder = new File(TASK_PATH);
-        File[] userFiles = taskFolder.listFiles();
-        if (userFiles != null) {
-            // 파일 개수 자체가 변했는지(새로운 유저 파일 추가 등) 확인
-            int trackedCount = 0;
-            // 윈도우 환경과 리눅스 환경의 경로 슬래시 구분자 통일을 위해 File 객체로 직접 비교 준비
-            for (String key : fileLastModifiedMap.keySet()) {
-                File trackedFile = new File(key);
-                if (trackedFile.getParentFile() != null && trackedFile.getParentFile().getName().equals("user_tasks")) {
-                    trackedCount++;
-                }
-            }
-            
-            int actualCount = 0;
-            for (File file : userFiles) {
-                if (file.isFile() && file.getName().endsWith(".txt")) {
-                    actualCount++;
-                }
-            }
-
-            // 파일의 개수가 달라졌으면 동기화 필요
-            if (trackedCount != actualCount) {
-                recordFileTimestamps();
-                return true;
-            }
-
-            // 개별 파일의 수정 시간 변화 확인
-            for (File file : userFiles) {
-                if (file.isFile() && file.getName().endsWith(".txt")) {
-                    String path = file.getAbsolutePath();
-                    long currentModified = file.lastModified();
-
-                    if (!fileLastModifiedMap.containsKey(path) || fileLastModifiedMap.get(path) != currentModified) {
-                        recordFileTimestamps();
-                        return true;
-                    }
-                }
-            }
-        }
-
-        return false;
-    }
-
-    // 수동 동기화 변경용 메서드
-    public void triggerMockFileChange() {
-        this.isFileChanged = true;
+    public String getSaveFolderPath() {
+        return this.saveFolder.getAbsolutePath();
     }
 
     public List<User> loadUsers() {
         List<User> list = new ArrayList<>();
-        File userListFile = new File(META_PATH + "/users.txt");
-        if (userListFile.exists()) {
-            try {
-                BufferedReader br = new BufferedReader(new FileReader(userListFile));
-                String line;
-                while ((line = br.readLine()) != null) {
-                    String[] parts = line.split("\\|", -1);
-                    if (parts.length >= 4) {
-                        String name = parts[0];
-                        String pw = parts[1];
-                        String role = parts[2];
-                        String teamName = parts[3];
+        File file = new File(META_PATH + "/users.txt");
 
-                        User u;
-                        if (role.equalsIgnoreCase("ADMIN")) {
-                            u = new Admin(name, pw);
-                        } else if (role.equalsIgnoreCase("LEADER")) {
-                            u = new TeamLeader(name, pw, teamName);
-                        } else {
-                            u = new Member(name, pw, teamName);
-                        }
-                        list.add(u);
-                    }
-                }
-                br.close();
-            } catch (Exception e) {
-                System.out.println("사용자 정보 로드 실패: " + e.getMessage());
-            }
-        }
-        return list;
-    }
-
-    public void saveUsers(List<User> userList) {
-        File userListFile = new File(META_PATH + "/users.txt");
-
-        try {
-            BufferedWriter bw = new BufferedWriter(new FileWriter(userListFile));
-            for (User u : userList) {
-                String role;
-                if (u.isAdmin()) {
-                    role = "ADMIN";
-                } else if (u.isLeader()) {
-                    role = "LEADER";
-                } else {
-                    role = "MEMBER";
-                }
-                bw.write(u.getName() + "|" + u.getPassword() + "|" + role + "|" + u.getTeamName());
-                bw.newLine();
-            }
-            bw.close();
-            fileLastModifiedMap.put(userListFile.getAbsolutePath(), userListFile.lastModified());
-            System.out.println("[manager.DataManager] 사용자 리스트 파일 저장 완료");
-        } catch (IOException e) {
-            System.out.println("사용자 리스트 파일 저장 에러: " + e.getMessage());
-        }
-    }
-
-    // 전체 데이터 로드하는 메서드 (마스터 파일 읽고 -> 유저 파일 읽음)
-    public List<Team> loadAllData() {
-        List<Team> database = new ArrayList<>();
-        
-        // 1. 프로젝트 마스터 파일 읽기 (뼈대 만들기)
-        File masterFile = new File(META_PATH + "/project_master.txt");
-        if (masterFile.exists()) {
-            try {
-                BufferedReader br = new BufferedReader(new FileReader(masterFile));
-                String line;
-                while ((line = br.readLine()) != null) {
-                    // 팀명|프로젝트ID|프로젝트명 형식
-                    String[] parts = line.split("\\|", -1);
-
-                    if (parts.length >= 1) {
-                        String teamName = parts[0];
-                        if (teamName.trim().isEmpty()) continue;
-
-                        Team targetTeam = null;
-                        for (int i = 0; i < database.size(); i++) {
-                            Team t = database.get(i);
-                            if (t.getTeamName().equals(teamName)) {
-                                targetTeam = t;
-                                break;
-                            }
-                        }
-
-                        if (targetTeam == null) {
-                            targetTeam = new Team(teamName);
-                            database.add(targetTeam);
-                        }
-
-                        if (parts.length >= 3 && !parts[1].trim().isEmpty()) {
-                            String pId = parts[1];
-                            String pName = parts[2];
-                            targetTeam.addProject(new Project(pId, pName));
-                        }
-                    }
-                }
-                br.close();
-            } catch (IOException e) {
-                System.out.println("마스터 파일 읽기 에러!");
-                e.printStackTrace();
-            }
+        if (!file.exists()) {
+            return list;
         }
 
-        // 2. 유저별 태스크 파일 읽기 (살 붙이기)
-        File taskFolder = new File(TASK_PATH);
-        File[] userFiles = taskFolder.listFiles();
-        if (userFiles != null) {
-            for (int i = 0; i < userFiles.length; i++) {
-                File userFile = userFiles[i];
-                if (userFile.isFile() && userFile.getName().endsWith(".txt")) {
-                    String ownerName = userFile.getName().replace(".txt", "");
-                    readUserTaskFile(userFile, ownerName, database);
-                }
-            }
-        }
-
-        // 로드 완료 후 다시 타임스탬프 현황을 동기화 기록
-        recordFileTimestamps();
-        return database;
-    }
-
-    private void readUserTaskFile(File file, String ownerName, List<Team> database) {
         try {
             BufferedReader br = new BufferedReader(new FileReader(file));
             String line;
             while ((line = br.readLine()) != null) {
-                // 프로젝트ID|제목|시작일|종료일|완료여부|색상RGB
                 String[] parts = line.split("\\|");
-                if (parts.length >= 6) {
-                    String pId = parts[0];
-                    String title = parts[1];
-                    String start = parts[2];
-                    String end = parts[3];
-                    boolean isCompleted = Boolean.parseBoolean(parts[4]);
-                    Color color = new Color(Integer.parseInt(parts[5]));
+                if (parts.length >= 3) {
+                    String name = parts[0];
+                    String pw = parts[1];
+                    String role = parts[2];
 
-                    Task task = new Task(pId, ownerName, title, start, end, color);
-                    task.setCompleted(isCompleted);
-
-                    for (int i = 0; i < database.size(); i++) {
-                        Team t = database.get(i);
-                        for (int j = 0; j < t.getProjects().size(); j++) {
-                            Project p = t.getProjects().get(j);
-                            if (p.getProjectId().equals(pId)) {
-                                p.addTask(task);
-                            }
-                        }
+                    // [방어 코드] 텍스트 파일에 실수로 "null" 문자가 들어갔어도 강제로 "N/A"로 치환
+                    String teamName = parts.length > 3 ? parts[3] : "N/A";
+                    if (teamName == null || teamName.equals("null") || teamName.trim().isEmpty()) {
+                        teamName = "N/A";
                     }
+
+                    User u;
+                    if (role.equals("ADMIN")) {
+                        u = new Admin(name, pw); // Admin은 2개 파라미터만 받는 구조 준수
+                    } else if (role.equals("LEADER")) {
+                        u = new TeamLeader(name, pw, teamName);
+                    } else {
+                        u = new Member(name, pw, teamName);
+                    }
+                    list.add(u);
                 }
             }
             br.close();
-        } catch (Exception e) {
-            System.out.println(ownerName + " 파일 읽기 실패");
+
+            fileLastModifiedMap.put(file.getAbsolutePath(), file.lastModified());
+
+        } catch (IOException e) {
+            e.printStackTrace();
         }
+
+        return list;
     }
 
-    // 특정 유저의 Task들만 모아서 해당 유저 이름의 txt 파일에 덮어쓰기
-    public void saveUserTasks(String targetOwnerName, List<Team> database) {
-        File file = new File(TASK_PATH + "/" + targetOwnerName + ".txt");
+    public void saveUsers(List<User> users) {
+        File file = new File(META_PATH + "/users.txt");
         try {
             BufferedWriter bw = new BufferedWriter(new FileWriter(file));
-            
-            for (int i = 0; i < database.size(); i++) {
-                Team t = database.get(i);
-                for (int j = 0; j < t.getProjects().size(); j++) {
-                    Project p = t.getProjects().get(j);
-                    for (int k = 0; k < p.getTasks().size(); k++) {
-                        Task task = p.getTasks().get(k);
-                        if (task.getOwnerName().equals(targetOwnerName)) {
-                            String line = task.getProjectId() + "|" + 
-                                          task.getTitle() + "|" + 
-                                          task.getStartDate() + "|" + 
-                                          task.getDeadline() + "|" + 
-                                          task.isCompleted() + "|" + 
-                                          task.getColor().getRGB();
-                            bw.write(line);
-                            bw.newLine();
-                        }
-                    }
+            for (int i = 0; i < users.size(); i++) {
+                User u = users.get(i);
+                String role = "";
+                if (u.isAdmin()) role = "ADMIN";
+                else if (u.isLeader()) role = "LEADER";
+                else role = "MEMBER";
+
+                // [방어 코드] 파일에 쓰기 직전 널 값이나 "null" 문자열이 타는 것을 차단
+                String teamName = u.getTeamName();
+                if (teamName == null || teamName.equals("null") || teamName.trim().isEmpty()) {
+                    teamName = "N/A";
                 }
+
+                // 관리자라 할지라도 구분자를 맞추기 위해 강제로 팀이름 텍스트(N/A 등)를 삽입
+                String line = u.getName() + "|" + u.getPassword() + "|" + role + "|" + teamName;
+                bw.write(line);
+                bw.newLine();
             }
             bw.close();
-            
-            // 파일 쓰기 완료 후 변경 시간 맵에 강제 반영하여 자가 리프레시 방지
+
             fileLastModifiedMap.put(file.getAbsolutePath(), file.lastModified());
+
         } catch (IOException e) {
-            System.out.println("파일 저장 실패: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
-    /**
-     * 관리자가 전체 프로젝트 구조(새로운 팀 추가, 새로운 프로젝트 생성 등)를 조작했을 때
-     * system_meta/project_master.txt 파일을 덮어쓰기 저장하는 메서드.
-     */
+    public List<Team> loadAllData() {
+        List<Team> list = new ArrayList<>();
+        File masterFile = new File(META_PATH + "/project_master.txt");
+
+        if (!masterFile.exists()) {
+            return list;
+        }
+
+        try {
+            BufferedReader br = new BufferedReader(new FileReader(masterFile));
+            String line;
+            while ((line = br.readLine()) != null) {
+                // 데이터 비어있는 빈 줄은 패스
+                if (line.trim().isEmpty()) continue;
+
+                // || 가 있어서 배열 뒷부분이 비더라도 길이 유지를 위해 -1 옵션 추가
+                String[] parts = line.split("\\|", -1);
+                String teamName = parts[0];
+
+                Team team = null;
+                for (Team t : list) {
+                    if (t.getTeamName().equals(teamName)) {
+                        team = t;
+                        break;
+                    }
+                }
+
+                if (team == null) {
+                    team = new Team(teamName);
+                    list.add(team);
+                }
+
+                // 프로젝트 정보가 있을 때만 추가 (비어있지 않은지 검사)
+                if (parts.length >= 3 && !parts[1].trim().isEmpty()) {
+                    String projectId = parts[1];
+                    String projectName = parts[2];
+                    Project p = new Project(projectId, projectName);
+                    team.addProject(p);
+                }
+            }
+            br.close();
+
+            // 파일 읽기 성공 시, 현재 읽은 시점의 최종 수정 시간 기억해둠
+            fileLastModifiedMap.put(masterFile.getAbsolutePath(), masterFile.lastModified());
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        // 마스터 파일 구축이 끝난 후, 각 유저별 Task 파일들을 읽어서 마스터 파일에 반영
+        loadAllUserTasks(list);
+
+        return list;
+    }
+
     public void saveProjectMaster(List<Team> database) {
         File masterFile = new File(META_PATH + "/project_master.txt");
         try {
             BufferedWriter bw = new BufferedWriter(new FileWriter(masterFile));
-            
+
             for (int i = 0; i < database.size(); i++) {
                 Team t = database.get(i);
                 // 팀만 생성하고 프로젝트는 비어있는 경우, 빈 데이터 패딩 문자열(||)로 팀 데이터 소실 방지
@@ -392,12 +209,137 @@ public class DataManager {
                 }
             }
             bw.close();
-            
+
             // 파일 쓰기 완료 후 변경 시간 맵에 강제 반영하여 감지 오작동 방지
             fileLastModifiedMap.put(masterFile.getAbsolutePath(), masterFile.lastModified());
-            System.out.println("[manager.DataManager] 프로젝트 마스터 파일 변경 완료 및 동기화 셋업!");
+            System.out.println("[manager.DataManager] 마스터 파일 저장 완료");
+
         } catch (IOException e) {
-            System.out.println("프로젝트 마스터 파일 저장 실패: " + e.getMessage());
+            e.printStackTrace();
         }
+    }
+
+    private void loadAllUserTasks(List<Team> database) {
+        File taskDir = new File(TASK_PATH);
+        File[] files = taskDir.listFiles((dir, name) -> name.endsWith("_tasks.txt"));
+
+        if (files == null) return;
+
+        for (File f : files) {
+            String ownerName = f.getName().replace("_tasks.txt", "");
+
+            try {
+                BufferedReader br = new BufferedReader(new FileReader(f));
+                String line;
+                while ((line = br.readLine()) != null) {
+                    if (line.trim().isEmpty()) continue;
+
+                    String[] parts = line.split("\\|");
+                    if (parts.length < 6) continue;
+
+                    String projectId = parts[0];
+                    String title = parts[1];
+                    String startDate = parts[2];
+                    String deadline = parts[3];
+                    boolean completed = Boolean.parseBoolean(parts[4]);
+
+                    // 저장할 때 getRGB()로 저장한 걸 원래 Color 객체로 변환
+                    int rgb = Integer.parseInt(parts[5]);
+                    Color color = new Color(rgb);
+
+                    Task task = new Task(projectId, ownerName, title, startDate, deadline, color);
+                    task.setCompleted(completed);
+
+                    // database를 뒤져서 해당 Task가 들어갈 프로젝트를 찾아 끼워넣기
+                    for (Team t : database) {
+                        for (Project p : t.getProjects()) {
+                            if (p.getProjectId().equals(projectId)) {
+                                p.addTask(task);
+                            }
+                        }
+                    }
+                }
+                br.close();
+
+                // Task 파일도 모니터링을 위해 시간 등록
+                fileLastModifiedMap.put(f.getAbsolutePath(), f.lastModified());
+
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    public void saveUserTasks(String ownerName, List<Team> database) {
+        File f = new File(TASK_PATH + "/" + ownerName + "_tasks.txt");
+        List<Task> userTasks = new ArrayList<>();
+
+        // 1. 전체 목록에서 이 유저(ownerName)가 생성한 Task들만 싹 다 긁어모으기
+        for (Team t : database) {
+            for (Project p : t.getProjects()) {
+                for (Task task : p.getTasks()) {
+                    if (task.getOwnerName().equals(ownerName)) {
+                        userTasks.add(task);
+                    }
+                }
+            }
+        }
+
+        // 2. 파일에 기록하기
+        try {
+            BufferedWriter bw = new BufferedWriter(new FileWriter(f));
+            for (Task task : userTasks) {
+                // 저장 형식: 프로젝트ID|제목|시작일|종료일|완료여부|색상RGB값
+                String line = task.getProjectId() + "|"
+                        + task.getTitle() + "|"
+                        + task.getStartDate() + "|"
+                        + task.getDeadline() + "|"
+                        + task.isCompleted() + "|"
+                        + task.getColor().getRGB();
+                bw.write(line);
+                bw.newLine();
+            }
+            bw.close();
+
+            // 저장 직후 최신 변경 시간을 기록해서 스레드가 다시 리로드하지 않게 방어
+            fileLastModifiedMap.put(f.getAbsolutePath(), f.lastModified());
+            System.out.println("[manager.DataManager] " + ownerName + " 님의 Task 파일 저장 완료");
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public boolean checkFileModified() {
+        if (isFileChanged) {
+            isFileChanged = false; // 플래그를 읽었으니 다시 초기화
+            return true;
+        }
+
+        // 마스터 파일 타임스탬프 검사
+        File masterFile = new File(META_PATH + "/project_master.txt");
+        if (masterFile.exists()) {
+            Long lastTime = fileLastModifiedMap.get(masterFile.getAbsolutePath());
+            if (lastTime != null && masterFile.lastModified() > lastTime) {
+                return true;
+            }
+        }
+
+        // Task 디렉토리 내부의 모든 파일 검사
+        File taskDir = new File(TASK_PATH);
+        File[] files = taskDir.listFiles((dir, name) -> name.endsWith("_tasks.txt"));
+        if (files != null) {
+            for (File f : files) {
+                Long lastTime = fileLastModifiedMap.get(f.getAbsolutePath());
+                if (lastTime != null && f.lastModified() > lastTime) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    public void triggerFileChange() {
+        this.isFileChanged = true;
     }
 }
